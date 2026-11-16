@@ -1,0 +1,131 @@
+name: Publish charts
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      charts: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          base: ${{ github.event.before }}
+          filters: |
+            prokrust-crds:
+              - 'charts/prokrust-crds/**'
+            prokrust-system:
+              - 'charts/prokrust-system/**'
+            prokrust-workspace:
+              - 'charts/prokrust-workspace/**'
+            web-api:
+              - 'charts/web-api/**'
+            data-job:
+              - 'charts/data-job/**'
+            trainer:
+              - 'charts/trainer/**'
+            batch-predictor:
+              - 'charts/batch-predictor/**'
+            serving:
+              - 'charts/serving/**'
+            ballista:
+              - 'charts/ballista/**'
+            prokrust-synthetic-controller:
+              - 'charts/prokrust-synthetic-controller/**'
+            prokrust-s3-controller:
+              - 'charts/prokrust-s3-controller/**'
+            prokrust-gcs-controller:
+              - 'charts/prokrust-gcs-controller/**'
+            prokrust-bigquery-controller:
+              - 'charts/prokrust-bigquery-controller/**'
+            prokrust-iceberg-controller:
+              - 'charts/prokrust-iceberg-controller/**'
+            prokrust-paimon-controller:
+              - 'charts/prokrust-paimon-controller/**'
+
+  publish:
+    needs: changes
+    if: >-
+      needs.changes.outputs.charts != '[]' &&
+      github.repository == 'prokrust-ai/helm-charts' &&
+      github.actor == 'prokrust-chart-exporter[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: ${{ fromJSON(needs.changes.outputs.charts) }}
+    concurrency:
+      group: harbor-chart-${{ matrix.chart }}
+      cancel-in-progress: false
+    environment: harbor
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CHART: ${{ matrix.chart }}
+      REGISTRY: ar.prokrust.io
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - uses: helm/chart-releaser-action@v1.9.0
+        with:
+          install_only: true
+          version: v1.10.1
+      - uses: oras-project/setup-oras@v2.0.3
+        with:
+          version: 1.3.6
+      - uses: sigstore/cosign-installer@v4.1.3
+
+      - name: Package and publish chart
+        id: chart
+        shell: bash
+        run: |
+          cr package "charts/$CHART" --package-path "$RUNNER_TEMP/package"
+          packages=("$RUNNER_TEMP/package/"*.tgz)
+          test "${#packages[@]}" -eq 1 && test -f "${packages[0]}"
+          [[ "$(basename "${packages[0]}")" == "$CHART-"*.tgz ]]
+          version=$(basename "${packages[0]}" .tgz)
+          version="${version#"$CHART-"}"
+          repository="$REGISTRY/charts/$CHART"
+          tag="${version//+/_}"
+
+          cr push --registry-url "oci://$REGISTRY/charts" --package-path "$RUNNER_TEMP/package"
+
+          digest=$(oras resolve "$repository:$tag")
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "reference=$repository@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Sign and verify digest
+        env:
+          REFERENCE: ${{ steps.chart.outputs.reference }}
+          VERSION: ${{ steps.chart.outputs.version }}
+          DIGEST: ${{ steps.chart.outputs.digest }}
+        shell: bash
+        run: |
+          identity="https://github.com/$GITHUB_WORKFLOW_REF"
+          issuer='https://token.actions.githubusercontent.com'
+          cosign sign --yes --oidc-provider github-actions -a "sourceCommit=$GITHUB_SHA" "$REFERENCE"
+          cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+            --certificate-github-workflow-sha "$GITHUB_SHA" -a "sourceCommit=$GITHUB_SHA" \
+            "$REFERENCE"
+          test "$(oras resolve "$REGISTRY/charts/$CHART:${VERSION//+/_}")" = "$DIGEST"
