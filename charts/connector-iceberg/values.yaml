@@ -1,0 +1,44 @@
+controllerImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:5ccb0ee189f3eb4f3d373c5d4c996905b475cf8de1e6e7b057cd9fa0058e42d2
+runtimeImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:5ccb0ee189f3eb4f3d373c5d4c996905b475cf8de1e6e7b057cd9fa0058e42d2
+descriptorDigest: sha256:bfc20e2b4f4b8ad7cc935cd47d6ee7df31953c008fe2d82af33845a04b6cbd15
+runtimeServiceAccountName: prokrust-connector-runtime
+runtimeTokenAudiences: []
+runtimeArtifactCredentialsSecretName: ''
+runtimeArtifactCredentialsProjectionUsername: ''
+runtimeNodeSelector: {}
+runtimeTolerations: []
+workspaceRbacBindings: []
+replicas: 2
+partitionConcurrency: 4
+controlConcurrency: 2
+maxAttemptSeconds: 900
+cleanupGraceSeconds: 30
+protectRuntimeRoots: true
+additionalTrustedUsers:
+- system:serviceaccount:cert-manager:cert-manager
+egress:
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+  ports:
+  - port: 53
+    protocol: UDP
+  - port: 53
+    protocol: TCP
+controllerApiServerEndpoints: []
+catalogEndpointPolicies: {}
+controllerResources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+runtimeResources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: '2'
+    memory: 512Mi
