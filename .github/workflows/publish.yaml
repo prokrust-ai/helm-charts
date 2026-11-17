@@ -41,18 +41,18 @@ jobs:
               - 'charts/serving/**'
             ballista:
               - 'charts/ballista/**'
-            prokrust-synthetic-controller:
-              - 'charts/prokrust-synthetic-controller/**'
-            prokrust-s3-controller:
-              - 'charts/prokrust-s3-controller/**'
-            prokrust-gcs-controller:
-              - 'charts/prokrust-gcs-controller/**'
-            prokrust-bigquery-controller:
-              - 'charts/prokrust-bigquery-controller/**'
-            prokrust-iceberg-controller:
-              - 'charts/prokrust-iceberg-controller/**'
-            prokrust-paimon-controller:
-              - 'charts/prokrust-paimon-controller/**'
+            connector-synthetic:
+              - 'charts/connector-synthetic/**'
+            connector-s3:
+              - 'charts/connector-s3/**'
+            connector-gcs:
+              - 'charts/connector-gcs/**'
+            connector-bigquery:
+              - 'charts/connector-bigquery/**'
+            connector-iceberg:
+              - 'charts/connector-iceberg/**'
+            connector-paimon:
+              - 'charts/connector-paimon/**'
 
   publish:
     needs: changes
