@@ -1,0 +1,238 @@
+{{- if .Values.protectRuntimeRoots }}
+{{- $name := include "connector.name" . }}
+{{- $trusted := printf "(has(request.userInfo.groups) && 'system:serviceaccounts:%s' in request.userInfo.groups) || (has(request.userInfo.username) && request.userInfo.username in %s)" .Release.Namespace (.Values.additionalTrustedUsers | toJson) }}
+{{- $system := list "system:kube-controller-manager" "system:serviceaccount:kube-system:deployment-controller" "system:serviceaccount:kube-system:replicaset-controller" "system:serviceaccount:kube-system:endpoint-controller" "system:serviceaccount:kube-system:endpointslice-controller" "system:serviceaccount:kube-system:endpointslicemirroring-controller" "system:serviceaccount:kube-system:generic-garbage-collector" "system:serviceaccount:kube-system:namespace-controller" | toJson }}
+{{- $artifactSecret := .Values.runtimeArtifactCredentialsSecretName }}
+{{- $projectionUser := .Values.runtimeArtifactCredentialsProjectionUsername }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-roots
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE, CONNECT]
+        resources: [services, secrets, configmaps, pods, pods/exec, pods/attach, pods/ephemeralcontainers, serviceaccounts, serviceaccounts/token]
+        scope: Namespaced
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [deployments, replicasets]
+        scope: Namespaced
+      - apiGroups: [discovery.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [endpointslices]
+        scope: Namespaced
+      - apiGroups: [networking.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [networkpolicies]
+        scope: Namespaced
+      - apiGroups: [cert-manager.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [certificates]
+        scope: Namespaced
+  validations:
+    - expression: >-
+        {{ $trusted }} || (has(request.userInfo.username) && request.userInfo.username in {{ $system }}) ||
+        (
+          request.operation == 'CREATE' &&
+          request.resource.resource == 'serviceaccounts' &&
+          has(request.subResource) && request.subResource == 'token' &&
+          has(request.name) && request.name == {{ .Values.runtimeServiceAccountName | toJson }} &&
+          has(request.userInfo.groups) && 'system:nodes' in request.userInfo.groups &&
+          has(request.userInfo.username) && request.userInfo.username.startsWith('system:node:') &&
+          request.userInfo.username != 'system:node:' &&
+          object != null && has(object.spec) && has(object.spec.audiences) &&
+          size(object.spec.audiences) > 0 &&
+          object.spec.audiences.all(audience, audience in {{ .Values.runtimeTokenAudiences | toJson }})
+        ) ||
+        (
+          request.operation == 'DELETE' &&
+          request.resource.group == '' && request.resource.version == 'v1' &&
+          request.resource.resource == 'pods' &&
+          (!has(request.subResource) || request.subResource == '') &&
+          has(request.userInfo.groups) &&
+          'system:nodes' in request.userInfo.groups && 'system:authenticated' in request.userInfo.groups &&
+          has(request.userInfo.username) &&
+          oldObject != null && has(oldObject.apiVersion) && oldObject.apiVersion == 'v1' &&
+          has(oldObject.kind) && oldObject.kind == 'Pod' &&
+          has(oldObject.spec) && has(oldObject.spec.nodeName) && size(oldObject.spec.nodeName) > 0 &&
+          request.userInfo.username == 'system:node:' + oldObject.spec.nodeName &&
+          has(oldObject.status) && has(oldObject.status.phase) &&
+          oldObject.status.phase in ['Succeeded', 'Failed'] &&
+          has(oldObject.metadata) && has(oldObject.metadata.deletionTimestamp) &&
+          oldObject.metadata.deletionTimestamp != null &&
+          has(oldObject.metadata.name) && has(request.name) && request.name == oldObject.metadata.name &&
+          has(oldObject.metadata.labels) &&
+          ['prokrust.ai/connector-uid', 'prokrust.ai/connector-installation-uid', 'prokrust.ai/connector-workspace-uid'].all(label,
+            label in oldObject.metadata.labels &&
+            oldObject.metadata.labels[label].matches('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')) &&
+          oldObject.metadata.name.startsWith('connector-' + oldObject.metadata.labels['prokrust.ai/connector-uid'] + '-') &&
+          has(oldObject.metadata.ownerReferences) && size(oldObject.metadata.ownerReferences) == 1 &&
+          oldObject.metadata.ownerReferences.all(owner,
+            owner.apiVersion == 'apps/v1' && owner.kind == 'ReplicaSet' &&
+            has(owner.controller) && owner.controller &&
+            has(owner.blockOwnerDeletion) && owner.blockOwnerDeletion &&
+            owner.uid.matches('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$') &&
+            owner.name.startsWith('connector-' + oldObject.metadata.labels['prokrust.ai/connector-uid'] + '-') &&
+            oldObject.metadata.name.startsWith(owner.name + '-'))
+        ) ||
+        (
+          (!has(request.name) || !request.name.startsWith('connector-')) &&
+          !(request.resource.resource == 'serviceaccounts' && has(request.name) && request.name == {{ .Values.runtimeServiceAccountName | toJson }}) &&
+          (object == null || !has(dyn(object).metadata) ||
+            ((!has(object.metadata.name) || !object.metadata.name.startsWith('connector-')) &&
+             (!has(object.metadata.generateName) || !object.metadata.generateName.startsWith('connector-')) &&
+             (!has(object.metadata.labels) ||
+               !object.metadata.labels.exists(label, label.startsWith('prokrust.ai/connector-') ||
+                  (label == 'kubernetes.io/service-name' && object.metadata.labels[label].startsWith('connector-')))))) &&
+          (oldObject == null || !has(dyn(oldObject).metadata) ||
+            (!has(oldObject.metadata.labels) || !oldObject.metadata.labels.exists(label,
+              label.startsWith('prokrust.ai/connector-') ||
+              (label == 'kubernetes.io/service-name' && oldObject.metadata.labels[label].startsWith('connector-')))))
+        )
+      message: Connector runtime infrastructure is managed by the installation
+    {{- if $artifactSecret }}
+    - expression: >-
+        request.resource.resource != 'secrets' ||
+        (
+          (!has(request.name) || request.name != {{ $artifactSecret | toJson }}) &&
+          (object == null || !has(dyn(object).metadata) || !has(object.metadata.name) || object.metadata.name != {{ $artifactSecret | toJson }}) &&
+          (oldObject == null || !has(dyn(oldObject).metadata) || !has(oldObject.metadata.name) || oldObject.metadata.name != {{ $artifactSecret | toJson }})
+        ) ||
+        {{ $trusted }} ||
+        (request.operation == 'DELETE' && (has(request.userInfo.username) && request.userInfo.username in {{ $system }}))
+        {{- if $projectionUser }}
+        || (has(request.userInfo.username) && request.userInfo.username == {{ $projectionUser | toJson }})
+        {{- end }}
+      message: Connector artifact credentials are projected by the installation
+    {{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-roots
+spec:
+  policyName: {{ $name }}-roots
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-workloads
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods, pods/ephemeralcontainers, replicationcontrollers]
+        scope: Namespaced
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments, replicasets, daemonsets, statefulsets]
+        scope: Namespaced
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs, cronjobs]
+        scope: Namespaced
+  variables:
+    - name: podSpec
+      expression: >-
+        request.resource.resource == 'pods' ? dyn(dyn(object).spec) :
+        request.resource.resource == 'cronjobs' ? dyn(dyn(object).spec.jobTemplate.spec.template.spec) :
+        dyn(dyn(object).spec.template.spec)
+    - name: templateLabels
+      expression: >-
+        request.resource.resource == 'pods' ? dyn(dyn(object).metadata) :
+        request.resource.resource == 'cronjobs' ? dyn(dyn(object).spec.jobTemplate.spec.template.metadata) :
+        dyn(dyn(object).spec.template.metadata)
+  validations:
+    - expression: >-
+        {{ $trusted }} || (has(request.userInfo.username) && request.userInfo.username in {{ $system }}) ||
+        (
+          (!has(variables.podSpec.serviceAccountName) || variables.podSpec.serviceAccountName != {{ .Values.runtimeServiceAccountName | toJson }}) &&
+          (!has(variables.podSpec.serviceAccount) || variables.podSpec.serviceAccount != {{ .Values.runtimeServiceAccountName | toJson }}) &&
+          (!has(variables.templateLabels.labels) || !variables.templateLabels.labels.exists(label, label.startsWith('prokrust.ai/connector-'))) &&
+          (!has(variables.podSpec.volumes) || !variables.podSpec.volumes.exists(v,
+            (has(v.secret) && has(v.secret.secretName) && (v.secret.secretName.startsWith('connector-') || v.secret.secretName.startsWith('prokrust-connector-runtime-artifact-'))) ||
+            (has(v.configMap) && has(v.configMap.name) && v.configMap.name.startsWith('connector-')) ||
+            (has(v.projected) && v.projected.sources.exists(source,
+              (has(source.secret) && has(source.secret.name) && (source.secret.name.startsWith('connector-') || source.secret.name.startsWith('prokrust-connector-runtime-artifact-'))) ||
+              (has(source.configMap) && has(source.configMap.name) && source.configMap.name.startsWith('connector-'))))
+          )) &&
+          !(
+            variables.podSpec.containers +
+            (has(variables.podSpec.initContainers) ? variables.podSpec.initContainers : []) +
+            (has(variables.podSpec.ephemeralContainers) ? variables.podSpec.ephemeralContainers : [])
+          ).exists(container,
+            (has(container.envFrom) && container.envFrom.exists(e,
+              (has(e.secretRef) && has(e.secretRef.name) && (e.secretRef.name.startsWith('connector-') || e.secretRef.name.startsWith('prokrust-connector-runtime-artifact-'))) ||
+              (has(e.configMapRef) && has(e.configMapRef.name) && e.configMapRef.name.startsWith('connector-')))) ||
+            (has(container.env) && container.env.exists(e,
+              has(e.valueFrom) && (
+                (has(e.valueFrom.secretKeyRef) && has(e.valueFrom.secretKeyRef.name) && (e.valueFrom.secretKeyRef.name.startsWith('connector-') || e.valueFrom.secretKeyRef.name.startsWith('prokrust-connector-runtime-artifact-'))) ||
+                (has(e.valueFrom.configMapKeyRef) && has(e.valueFrom.configMapKeyRef.name) && e.valueFrom.configMapKeyRef.name.startsWith('connector-'))
+              )))
+          )
+        )
+      message: Connector workload identities and bindings are reserved for the installation
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-workloads
+spec:
+  policyName: {{ $name }}-workloads
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-status
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apache.sources.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [paimonconnections, paimonconnections/status]
+        scope: Namespaced
+  validations:
+    - expression: >-
+        {{ $trusted }} || (has(request.userInfo.username) && request.userInfo.username in {{ $system }}) ||
+        ((!has(request.subResource) || request.subResource != 'status') &&
+          (has(object.metadata.finalizers) && 'prokrust.ai/connector-runtime' in object.metadata.finalizers) ==
+          (oldObject != null && has(oldObject.metadata.finalizers) && 'prokrust.ai/connector-runtime' in oldObject.metadata.finalizers))
+      message: Connection status and runtime finalization are managed by the installation
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-status
+spec:
+  policyName: {{ $name }}-status
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+{{- end }}

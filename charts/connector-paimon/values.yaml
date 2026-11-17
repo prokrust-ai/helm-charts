@@ -1,0 +1,44 @@
+controllerImage: ar.prokrust.io/prokrust/connector-paimon@sha256:fc82b298bc9b3ad03760b224f35faa2d20e54f5f02f50d3551f4fc46117af6ac
+runtimeImage: ar.prokrust.io/prokrust/connector-paimon@sha256:fc82b298bc9b3ad03760b224f35faa2d20e54f5f02f50d3551f4fc46117af6ac
+descriptorDigest: sha256:9e7daed83ac1be7476b53d4d9331eb1e6386ffa5ef318bc52245d11dd2e274f6
+runtimeServiceAccountName: prokrust-connector-runtime
+runtimeTokenAudiences: []
+runtimeArtifactCredentialsSecretName: ''
+runtimeArtifactCredentialsProjectionUsername: ''
+runtimeNodeSelector: {}
+runtimeTolerations: []
+workspaceRbacBindings: []
+replicas: 2
+partitionConcurrency: 4
+controlConcurrency: 2
+maxAttemptSeconds: 900
+cleanupGraceSeconds: 30
+protectRuntimeRoots: true
+additionalTrustedUsers:
+- system:serviceaccount:cert-manager:cert-manager
+egress:
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+  ports:
+  - port: 53
+    protocol: UDP
+  - port: 53
+    protocol: TCP
+controllerApiServerEndpoints: []
+catalogEndpointPolicies: {}
+controllerResources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+runtimeResources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: '2'
+    memory: 512Mi
