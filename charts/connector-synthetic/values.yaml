@@ -1,0 +1,43 @@
+controllerImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:9f14057f96c065f70975681795aabab7dd5f0ed5dccc8d5efa120ade6c4da867
+runtimeImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:9f14057f96c065f70975681795aabab7dd5f0ed5dccc8d5efa120ade6c4da867
+descriptorDigest: sha256:cb12cb42f0b6884cf2cdc7dac2fa84f5d018f1e059e41a6aa0172308c8653c0b
+runtimeServiceAccountName: prokrust-connector-runtime
+runtimeTokenAudiences: []
+runtimeArtifactCredentialsSecretName: ''
+runtimeArtifactCredentialsProjectionUsername: ''
+runtimeNodeSelector: {}
+runtimeTolerations: []
+workspaceRbacBindings: []
+replicas: 2
+partitionConcurrency: 4
+controlConcurrency: 2
+maxAttemptSeconds: 900
+cleanupGraceSeconds: 30
+protectRuntimeRoots: true
+additionalTrustedUsers:
+- system:serviceaccount:cert-manager:cert-manager
+egress:
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+  ports:
+  - port: 53
+    protocol: UDP
+  - port: 53
+    protocol: TCP
+controllerApiServerEndpoints: []
+controllerResources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+runtimeResources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: '2'
+    memory: 512Mi
