@@ -1,0 +1,1172 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: prokrustpolicies.platform.prokrust.ai
+spec:
+  group: platform.prokrust.ai
+  names:
+    kind: ProkrustPolicy
+    plural: prokrustpolicies
+    singular: prokrustpolicy
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Accepted')].status
+      name: Accepted
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ProkrustPolicySpec via `CustomResource`
+        properties:
+          spec:
+            maxProperties: 1024
+            properties:
+              admission:
+                maxProperties: 1024
+                properties:
+                  graph:
+                    maxProperties: 1024
+                    properties:
+                      edgesMax:
+                        format: int64
+                        type: integer
+                      nodesMax:
+                        format: int64
+                        type: integer
+                      shards:
+                        maxProperties: 1024
+                        properties:
+                          arrowBufferBytesMax:
+                            format: int64
+                            type: integer
+                          destinationNodesMax:
+                            format: int64
+                            type: integer
+                          edgesMax:
+                            format: int64
+                            type: integer
+                          nodeRowsMax:
+                            format: int64
+                            type: integer
+                          objectBytesMax:
+                            format: int64
+                            type: integer
+                        required:
+                        - arrowBufferBytesMax
+                        - destinationNodesMax
+                        - edgesMax
+                        - nodeRowsMax
+                        - objectBytesMax
+                        type: object
+                    required:
+                    - edgesMax
+                    - nodesMax
+                    - shards
+                    type: object
+                  prediction:
+                    maxProperties: 1024
+                    properties:
+                      outputPartitionsMax:
+                        format: int32
+                        type: integer
+                      outputPartitionsMin:
+                        format: int32
+                        type: integer
+                    required:
+                    - outputPartitionsMax
+                    - outputPartitionsMin
+                    type: object
+                  serving:
+                    maxProperties: 1024
+                    properties:
+                      maxBatchSize:
+                        format: int32
+                        type: integer
+                      maxReplicas:
+                        format: int32
+                        type: integer
+                      maxTimeoutSeconds:
+                        format: int32
+                        type: integer
+                      minReplicas:
+                        format: int32
+                        type: integer
+                    required:
+                    - maxBatchSize
+                    - maxReplicas
+                    - maxTimeoutSeconds
+                    - minReplicas
+                    type: object
+                  training:
+                    maxProperties: 1024
+                    properties:
+                      maxNullLabelRatio:
+                        format: double
+                        type: number
+                      model:
+                        maxProperties: 1024
+                        properties:
+                          batchSizeMax:
+                            format: int32
+                            type: integer
+                          batchSizeMin:
+                            format: int32
+                            type: integer
+                          dropoutMaxExclusive:
+                            format: double
+                            type: number
+                          dropoutMin:
+                            format: double
+                            type: number
+                          earlyStoppingPatienceMax:
+                            format: int32
+                            type: integer
+                          earlyStoppingPatienceMin:
+                            format: int32
+                            type: integer
+                          fanoutPerLayerMax:
+                            format: int32
+                            type: integer
+                          fanoutPerLayerMin:
+                            format: int32
+                            type: integer
+                          hiddenDimensionMax:
+                            format: int32
+                            type: integer
+                          hiddenDimensionMin:
+                            format: int32
+                            type: integer
+                          layersMax:
+                            format: int32
+                            type: integer
+                          layersMin:
+                            format: int32
+                            type: integer
+                          learningRateMax:
+                            format: double
+                            type: number
+                          learningRateMinExclusive:
+                            format: double
+                            type: number
+                          maxEpochsMax:
+                            format: int32
+                            type: integer
+                          maxEpochsMin:
+                            format: int32
+                            type: integer
+                        required:
+                        - batchSizeMax
+                        - batchSizeMin
+                        - dropoutMaxExclusive
+                        - dropoutMin
+                        - earlyStoppingPatienceMax
+                        - earlyStoppingPatienceMin
+                        - fanoutPerLayerMax
+                        - fanoutPerLayerMin
+                        - hiddenDimensionMax
+                        - hiddenDimensionMin
+                        - layersMax
+                        - layersMin
+                        - learningRateMax
+                        - learningRateMinExclusive
+                        - maxEpochsMax
+                        - maxEpochsMin
+                        type: object
+                    required:
+                    - maxNullLabelRatio
+                    - model
+                    type: object
+                required:
+                - graph
+                - prediction
+                - serving
+                - training
+                type: object
+              authorization:
+                maxProperties: 1024
+                properties:
+                  connectionProfile:
+                    enum:
+                    - seaweedfs
+                    - aws
+                    - gcp-s3-compatible
+                    maxLength: 16384
+                    type: string
+                  connections:
+                    maxProperties: 1024
+                    properties:
+                      catalogRules:
+                        items:
+                          description: Explicit catalog allowlist. Empty rules deny catalog access.
+                          maxProperties: 1024
+                          properties:
+                            allowedNamespaces:
+                              items:
+                                items:
+                                  maxLength: 16384
+                                  type: string
+                                maxItems: 256
+                                type: array
+                              maxItems: 256
+                              type: array
+                            allowedTables:
+                              description: Empty permits all tables within the listed namespaces.
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            bearerSecretRefs:
+                              items:
+                                maxProperties: 1024
+                                properties:
+                                  key:
+                                    maxLength: 16384
+                                    type: string
+                                  name:
+                                    maxLength: 253
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              maxItems: 256
+                              type: array
+                            connectionName:
+                              maxLength: 253
+                              type: string
+                            endpoint:
+                              maxProperties: 1024
+                              properties:
+                                allowRedirects:
+                                  type: boolean
+                                allowedResolvedCidrs:
+                                  items:
+                                    maxLength: 16384
+                                    type: string
+                                  maxItems: 256
+                                  type: array
+                                denyCidrs:
+                                  items:
+                                    maxLength: 16384
+                                    type: string
+                                  maxItems: 256
+                                  type: array
+                                origin:
+                                  maxLength: 16384
+                                  type: string
+                              required:
+                              - allowRedirects
+                              - allowedResolvedCidrs
+                              - denyCidrs
+                              - origin
+                              type: object
+                            serviceAccounts:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                          required:
+                          - allowedNamespaces
+                          - connectionName
+                          - endpoint
+                          type: object
+                          x-kubernetes-validations:
+                          - rule: self.connectionName != '' && self.endpoint.origin.startsWith('https://') && !self.endpoint.allowRedirects && self.allowedNamespaces.size() > 0
+                        maxItems: 256
+                        type: array
+                      gcpRules:
+                        items:
+                          maxProperties: 1024
+                          properties:
+                            allowedPrefixes:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            bigQueryWriteModes:
+                              items:
+                                enum:
+                                - WriteIfEmpty
+                                - Append
+                                - Overwrite
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            bucket:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            connectionKind:
+                              description: Namespace-local connector reference. Legacy references default to S3.
+                              enum:
+                              - S3Connection
+                              - GCSConnection
+                              - BigQueryConnection
+                              maxLength: 16384
+                              type: string
+                            connectionName:
+                              maxLength: 253
+                              type: string
+                            datasets:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            federationAudiences:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            federationConfigMaps:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            jobProjects:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            locations:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            project:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            purpose:
+                              enum:
+                              - Source
+                              - Artifact
+                              - Destination
+                              maxLength: 16384
+                              type: string
+                            serviceAccounts:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                          required:
+                          - connectionKind
+                          - connectionName
+                          - purpose
+                          - serviceAccounts
+                          type: object
+                          x-kubernetes-validations:
+                          - rule: self.serviceAccounts.size() > 0 && self.connectionKind != 'S3Connection'
+                        maxItems: 256
+                        type: array
+                      rules:
+                        items:
+                          maxProperties: 1024
+                          properties:
+                            allowedPrefixes:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            auth:
+                              maxProperties: 1024
+                              properties:
+                                secretRefs:
+                                  items:
+                                    maxProperties: 1024
+                                    properties:
+                                      accessKeyIdKey:
+                                        maxLength: 16384
+                                        type: string
+                                      name:
+                                        maxLength: 253
+                                        type: string
+                                      secretAccessKeyKey:
+                                        maxLength: 16384
+                                        type: string
+                                      sessionTokenKey:
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                    required:
+                                    - accessKeyIdKey
+                                    - name
+                                    - secretAccessKeyKey
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - rule: (self.accessKeyIdKey == 'AWS_ACCESS_KEY_ID' && self.secretAccessKeyKey == 'AWS_SECRET_ACCESS_KEY' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'AWS_SESSION_TOKEN')) || (self.accessKeyIdKey == 'accessKeyId' && self.secretAccessKeyKey == 'secretAccessKey' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'sessionToken'))
+                                  maxItems: 256
+                                  type: array
+                                serviceAccounts:
+                                  items:
+                                    maxLength: 16384
+                                    type: string
+                                  maxItems: 256
+                                  type: array
+                                workloadIdentityBindings:
+                                  items:
+                                    maxProperties: 1024
+                                    properties:
+                                      namespace:
+                                        maxLength: 63
+                                        minLength: 1
+                                        nullable: true
+                                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                        type: string
+                                      provider:
+                                        enum:
+                                        - IRSA
+                                        - EKSPodIdentity
+                                        maxLength: 16384
+                                        type: string
+                                      roleArn:
+                                        maxLength: 2048
+                                        pattern: ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/([A-Za-z0-9+=,.@_-]+/)*[A-Za-z0-9+=,.@_-]{1,64}$
+                                        type: string
+                                      serviceAccount:
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                                        type: string
+                                    required:
+                                    - provider
+                                    - roleArn
+                                    - serviceAccount
+                                    type: object
+                                  maxItems: 256
+                                  type: array
+                              required:
+                              - secretRefs
+                              type: object
+                              x-kubernetes-validations:
+                              - rule: self.secretRefs.size() > 0 || (has(self.workloadIdentityBindings) && self.workloadIdentityBindings.size() > 0)
+                            bucket:
+                              maxLength: 16384
+                              type: string
+                            connectionName:
+                              maxLength: 253
+                              type: string
+                            endpoint:
+                              maxProperties: 1024
+                              properties:
+                                allowRedirects:
+                                  type: boolean
+                                allowedResolvedCidrs:
+                                  items:
+                                    maxLength: 16384
+                                    type: string
+                                  maxItems: 256
+                                  type: array
+                                denyCidrs:
+                                  items:
+                                    maxLength: 16384
+                                    type: string
+                                  maxItems: 256
+                                  type: array
+                                origin:
+                                  maxLength: 16384
+                                  type: string
+                              required:
+                              - allowRedirects
+                              - allowedResolvedCidrs
+                              - denyCidrs
+                              - origin
+                              type: object
+                            forcePathStyle:
+                              type: boolean
+                            purpose:
+                              enum:
+                              - Source
+                              - Artifact
+                              - Destination
+                              maxLength: 16384
+                              type: string
+                          required:
+                          - allowedPrefixes
+                          - auth
+                          - bucket
+                          - connectionName
+                          - endpoint
+                          - forcePathStyle
+                          - purpose
+                          type: object
+                        maxItems: 256
+                        type: array
+                    required:
+                    - rules
+                    type: object
+                required:
+                - connectionProfile
+                - connections
+                type: object
+              execution:
+                maxProperties: 1024
+                properties:
+                  ballista:
+                    maxProperties: 1024
+                    properties:
+                      clusterName:
+                        maxLength: 253
+                        type: string
+                      configurationDigest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                      crateVersions:
+                        maxProperties: 1024
+                        properties:
+                          arrow:
+                            maxLength: 16384
+                            type: string
+                          ballista:
+                            maxLength: 16384
+                            type: string
+                          datafusion:
+                            maxLength: 16384
+                            type: string
+                          objectStore:
+                            maxLength: 16384
+                            type: string
+                          parquet:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - arrow
+                        - ballista
+                        - datafusion
+                        - objectStore
+                        - parquet
+                        type: object
+                      maxConcurrentProducers:
+                        format: int32
+                        maximum: 16.0
+                        minimum: 1.0
+                        type: integer
+                      ports:
+                        maxProperties: 1024
+                        properties:
+                          executorFlight:
+                            format: int32
+                            type: integer
+                          executorShuffle:
+                            format: int32
+                            type: integer
+                          workflowGrpc:
+                            format: int32
+                            type: integer
+                          workflowRest:
+                            format: int32
+                            type: integer
+                        required:
+                        - executorFlight
+                        - executorShuffle
+                        - workflowGrpc
+                        - workflowRest
+                        type: object
+                      release:
+                        maxLength: 16384
+                        type: string
+                      serviceAccounts:
+                        maxProperties: 1024
+                        properties:
+                          executor:
+                            maxLength: 16384
+                            type: string
+                          scheduler:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - executor
+                        - scheduler
+                        type: object
+                      upstreamCommit:
+                        maxLength: 16384
+                        type: string
+                    required:
+                    - clusterName
+                    - configurationDigest
+                    - crateVersions
+                    - maxConcurrentProducers
+                    - ports
+                    - release
+                    - serviceAccounts
+                    - upstreamCommit
+                    type: object
+                  contractVersion:
+                    default: prokrust.policy/v3
+                    maxLength: 16384
+                    type: string
+                  controller:
+                    maxProperties: 1024
+                    properties:
+                      artifactStoreProbeTtlSeconds:
+                        default: 300
+                        format: int32
+                        type: integer
+                      cancellationGraceSeconds:
+                        default: 30
+                        format: int32
+                        type: integer
+                      connectionProbeTtlSeconds:
+                        default: 300
+                        format: int32
+                        type: integer
+                      conversionParallelism:
+                        description: Aggregate conversion-pod cap. None preserves the legacy policy payload.
+                        format: uint32
+                        maximum: 128.0
+                        minimum: 1.0
+                        nullable: true
+                        type: integer
+                      conversionWorkerDeadlineSeconds:
+                        format: uint32
+                        maximum: 172800.0
+                        minimum: 60.0
+                        nullable: true
+                        type: integer
+                      workflowActiveDeadlineSeconds:
+                        format: uint32
+                        maximum: 604800.0
+                        minimum: 60.0
+                        nullable: true
+                        type: integer
+                      workflowRecoveryLimit:
+                        default: 1
+                        format: int32
+                        type: integer
+                      workflowTtlAfterTerminalSeconds:
+                        default: 86400
+                        format: int32
+                        type: integer
+                    type: object
+                  events:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      eventBusName:
+                        maxLength: 253
+                        type: string
+                      profiles:
+                        items:
+                          maxProperties: 1024
+                          properties:
+                            name:
+                              maxLength: 253
+                              type: string
+                            request:
+                              maxProperties: 1024
+                              properties:
+                                coverage:
+                                  maxProperties: 1024
+                                  properties:
+                                    completeFrom:
+                                      maxLength: 16384
+                                      nullable: true
+                                      type: string
+                                    completeThrough:
+                                      maxLength: 16384
+                                      type: string
+                                  required:
+                                  - completeThrough
+                                  type: object
+                                table:
+                                  maxProperties: 1024
+                                  properties:
+                                    expectedDigest:
+                                      maxLength: 71
+                                      pattern: ^sha256:[0-9a-f]{64}$
+                                      type: string
+                                    name:
+                                      maxLength: 253
+                                      type: string
+                                  required:
+                                  - expectedDigest
+                                  - name
+                                  type: object
+                              required:
+                              - coverage
+                              - table
+                              type: object
+                            transport:
+                              maxProperties: 1024
+                              properties:
+                                aws:
+                                  maxProperties: 1024
+                                  properties:
+                                    queueArn:
+                                      maxLength: 16384
+                                      type: string
+                                    queueUrl:
+                                      maxLength: 16384
+                                      type: string
+                                    region:
+                                      maxLength: 16384
+                                      type: string
+                                  required:
+                                  - queueArn
+                                  - queueUrl
+                                  - region
+                                  type: object
+                              required:
+                              - aws
+                              type: object
+                            trigger:
+                              maxProperties: 1024
+                              properties:
+                                bucket:
+                                  maxLength: 16384
+                                  type: string
+                                readyKeyPrefix:
+                                  maxLength: 16384
+                                  type: string
+                                readyObjectSuffix:
+                                  maxLength: 16384
+                                  type: string
+                              required:
+                              - bucket
+                              - readyKeyPrefix
+                              - readyObjectSuffix
+                              type: object
+                          required:
+                          - name
+                          - request
+                          - transport
+                          - trigger
+                          type: object
+                        maxItems: 256
+                        type: array
+                    required:
+                    - eventBusName
+                    - profiles
+                    type: object
+                  identities:
+                    maxProperties: 1024
+                    properties:
+                      argoEventSource:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      argoSensor:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      artifactStoreProbe:
+                        maxLength: 16384
+                        type: string
+                      artifactWriter:
+                        maxLength: 16384
+                        type: string
+                      ballistaClusterController:
+                        maxLength: 16384
+                        type: string
+                      ballistaHealthProbe:
+                        maxLength: 16384
+                        type: string
+                      batchPredictor:
+                        maxLength: 16384
+                        type: string
+                      connectionProbe:
+                        maxLength: 16384
+                        type: string
+                      controllerManager:
+                        maxLength: 16384
+                        type: string
+                      graphMaterializer:
+                        maxLength: 16384
+                        type: string
+                      kserveRuntime:
+                        maxLength: 16384
+                        type: string
+                      predictionMaterializer:
+                        maxLength: 16384
+                        type: string
+                      tableMaterializer:
+                        maxLength: 16384
+                        type: string
+                      tableStaging:
+                        maxLength: 16384
+                        type: string
+                      trainer:
+                        maxLength: 16384
+                        type: string
+                      trainingMaterializer:
+                        maxLength: 16384
+                        type: string
+                      workflowExecutor:
+                        maxLength: 16384
+                        type: string
+                    required:
+                    - artifactStoreProbe
+                    - artifactWriter
+                    - ballistaClusterController
+                    - ballistaHealthProbe
+                    - batchPredictor
+                    - connectionProbe
+                    - controllerManager
+                    - graphMaterializer
+                    - kserveRuntime
+                    - predictionMaterializer
+                    - tableMaterializer
+                    - tableStaging
+                    - trainer
+                    - trainingMaterializer
+                    - workflowExecutor
+                    type: object
+                  images:
+                    maxProperties: 1024
+                    properties:
+                      ballistaExecutor:
+                        maxLength: 16384
+                        type: string
+                      ballistaScheduler:
+                        maxLength: 16384
+                        type: string
+                      batchPredictor:
+                        maxLength: 16384
+                        type: string
+                      dataJob:
+                        maxLength: 16384
+                        type: string
+                      modelServer:
+                        maxLength: 16384
+                        type: string
+                      operator:
+                        maxLength: 16384
+                        type: string
+                      trainer:
+                        maxLength: 16384
+                        type: string
+                      trainerCuda:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                    required:
+                    - ballistaExecutor
+                    - ballistaScheduler
+                    - batchPredictor
+                    - dataJob
+                    - modelServer
+                    - operator
+                    - trainer
+                    type: object
+                  programs:
+                    maxProperties: 1024
+                    properties:
+                      graphSnapshot:
+                        maxProperties: 1024
+                        properties:
+                          programId:
+                            maxLength: 16384
+                            type: string
+                          version:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - programId
+                        - version
+                        type: object
+                      predictionRun:
+                        maxProperties: 1024
+                        properties:
+                          programId:
+                            maxLength: 16384
+                            type: string
+                          version:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - programId
+                        - version
+                        type: object
+                      tableSnapshot:
+                        maxProperties: 1024
+                        properties:
+                          programId:
+                            maxLength: 16384
+                            type: string
+                          version:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - programId
+                        - version
+                        type: object
+                      trainingRun:
+                        maxProperties: 1024
+                        properties:
+                          programId:
+                            maxLength: 16384
+                            type: string
+                          version:
+                            maxLength: 16384
+                            type: string
+                        required:
+                        - programId
+                        - version
+                        type: object
+                    required:
+                    - graphSnapshot
+                    - predictionRun
+                    - tableSnapshot
+                    - trainingRun
+                    type: object
+                  release:
+                    maxProperties: 1024
+                    properties:
+                      lock:
+                        maxProperties: 1024
+                        properties:
+                          digest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                            x-kubernetes-validations:
+                            - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                          uri:
+                            maxLength: 2048
+                            type: string
+                        required:
+                        - digest
+                        - uri
+                        type: object
+                      mode:
+                        enum:
+                        - Qualification
+                        - Qualified
+                        maxLength: 16384
+                        type: string
+                      promotion:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          digest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                            x-kubernetes-validations:
+                            - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                          uri:
+                            maxLength: 2048
+                            type: string
+                        required:
+                        - digest
+                        - uri
+                        type: object
+                    required:
+                    - lock
+                    - mode
+                    type: object
+                  serving:
+                    maxProperties: 1024
+                    properties:
+                      autoscalerClass:
+                        default: HPA
+                        enum:
+                        - HPA
+                        maxLength: 16384
+                        type: string
+                      clusterLocal:
+                        default: true
+                        type: boolean
+                      deploymentMode:
+                        default: Standard
+                        enum:
+                        - Standard
+                        maxLength: 16384
+                        type: string
+                      runtime:
+                        maxProperties: 1024
+                        properties:
+                          name:
+                            maxLength: 253
+                            type: string
+                          specDigest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                        required:
+                        - name
+                        - specDigest
+                        type: object
+                      storageHelperDisabled:
+                        default: true
+                        type: boolean
+                    required:
+                    - runtime
+                    type: object
+                required:
+                - ballista
+                - controller
+                - identities
+                - images
+                - programs
+                - release
+                - serving
+                type: object
+                x-kubernetes-validations:
+                - rule: self.contractVersion == 'prokrust.policy/v3'
+            required:
+            - admission
+            - authorization
+            - execution
+            type: object
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              conditions:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    lastTransitionTime:
+                      maxLength: 2048
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      type: integer
+                    reason:
+                      maxLength: 128
+                      type: string
+                    status:
+                      enum:
+                      - 'True'
+                      - 'False'
+                      - Unknown
+                      maxLength: 2048
+                      type: string
+                    type:
+                      maxLength: 2048
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - observedGeneration
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              resolved:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  eventProfiles:
+                    additionalProperties:
+                      maxLength: 2048
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                  releaseLock:
+                    maxProperties: 1024
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - uri
+                    type: object
+                  releasePromotion:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - uri
+                    type: object
+                  serviceAccountUids:
+                    additionalProperties:
+                      maxLength: 2048
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                  servingRuntimeDigest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                  validatedAt:
+                    maxLength: 2048
+                    type: string
+                  workflowProgramDigests:
+                    additionalProperties:
+                      maxLength: 2048
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                  workflowTemplateDigests:
+                    additionalProperties:
+                      maxLength: 2048
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                required:
+                - eventProfiles
+                - releaseLock
+                - serviceAccountUids
+                - servingRuntimeDigest
+                - validatedAt
+                type: object
+              semanticDigest:
+                maxLength: 71
+                nullable: true
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: ProkrustPolicy
+        type: object
+        x-kubernetes-validations:
+        - rule: self.metadata.name == 'default'
+    served: true
+    storage: true
+    subresources:
+      status: {}

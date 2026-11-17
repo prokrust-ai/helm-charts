@@ -1,0 +1,726 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: tables.data.prokrust.ai
+spec:
+  group: data.prokrust.ai
+  names:
+    kind: Table
+    plural: tables
+    singular: table
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Accepted')].status
+      name: Accepted
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for TableSpec via `CustomResource`
+        properties:
+          spec:
+            maxProperties: 1024
+            properties:
+              candidateEndTime:
+                description: Optional end-of-availability timestamp for link candidates.
+                maxLength: 16384
+                nullable: true
+                type: string
+              columns:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    feature:
+                      type: boolean
+                    multicategoricalDelimiter:
+                      description: Optional delimiter for a Utf8 source normalized to a ListUtf8 column.
+                      maxLength: 16384
+                      nullable: true
+                      type: string
+                    name:
+                      maxLength: 253
+                      type: string
+                    physicalType:
+                      enum:
+                      - Boolean
+                      - Int64
+                      - Float64
+                      - Utf8
+                      - TimestampNanosecondUtc
+                      - ListBoolean
+                      - ListInt64
+                      - ListUtf8
+                      maxLength: 16384
+                      type: string
+                    semanticType:
+                      enum:
+                      - Id
+                      - Timestamp
+                      - Numerical
+                      - Categorical
+                      - Text
+                      - Multicategorical
+                      - Ignored
+                      maxLength: 16384
+                      type: string
+                  required:
+                  - feature
+                  - name
+                  - physicalType
+                  - semanticType
+                  type: object
+                maxItems: 256
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              eventTime:
+                maxLength: 16384
+                nullable: true
+                type: string
+              featureTimePolicy:
+                enum:
+                - RowEventTime
+                - Static
+                maxLength: 16384
+                type: string
+              ingestion:
+                description: Explicit versioned normalization. Absence preserves strict Parquet behavior.
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  columns:
+                    items:
+                      maxProperties: 1024
+                      properties:
+                        allowFloatApproximation:
+                          type: boolean
+                        binaryEncoding:
+                          enum:
+                          - Base64
+                          - null
+                          maxLength: 16384
+                          nullable: true
+                          type: string
+                        boolean:
+                          maxProperties: 1024
+                          nullable: true
+                          properties:
+                            falseValues:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                            trueValues:
+                              items:
+                                maxLength: 16384
+                                type: string
+                              maxItems: 256
+                              type: array
+                          required:
+                          - falseValues
+                          - trueValues
+                          type: object
+                        emptyIsNull:
+                          nullable: true
+                          type: boolean
+                        name:
+                          maxLength: 253
+                          type: string
+                        nullTokens:
+                          items:
+                            maxLength: 16384
+                            type: string
+                          maxItems: 256
+                          type: array
+                        number:
+                          maxProperties: 1024
+                          nullable: true
+                          properties:
+                            decimalSeparator:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            groupingSeparator:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                          type: object
+                        source:
+                          maxProperties: 1024
+                          properties:
+                            composite:
+                              items:
+                                maxProperties: 1024
+                                properties:
+                                  allowFloatApproximation:
+                                    type: boolean
+                                  binaryEncoding:
+                                    enum:
+                                    - Base64
+                                    - null
+                                    maxLength: 16384
+                                    nullable: true
+                                    type: string
+                                  boolean:
+                                    maxProperties: 1024
+                                    nullable: true
+                                    properties:
+                                      falseValues:
+                                        items:
+                                          maxLength: 16384
+                                          type: string
+                                        maxItems: 256
+                                        type: array
+                                      trueValues:
+                                        items:
+                                          maxLength: 16384
+                                          type: string
+                                        maxItems: 256
+                                        type: array
+                                    required:
+                                    - falseValues
+                                    - trueValues
+                                    type: object
+                                  emptyIsNull:
+                                    nullable: true
+                                    type: boolean
+                                  name:
+                                    maxLength: 253
+                                    nullable: true
+                                    type: string
+                                  nullTokens:
+                                    items:
+                                      maxLength: 16384
+                                      type: string
+                                    maxItems: 256
+                                    type: array
+                                  number:
+                                    maxProperties: 1024
+                                    nullable: true
+                                    properties:
+                                      decimalSeparator:
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                      groupingSeparator:
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                    type: object
+                                  partition:
+                                    maxLength: 16384
+                                    nullable: true
+                                    type: string
+                                  physicalType:
+                                    enum:
+                                    - Boolean
+                                    - Int64
+                                    - Float64
+                                    - Utf8
+                                    - TimestampNanosecondUtc
+                                    - ListBoolean
+                                    - ListInt64
+                                    - ListUtf8
+                                    maxLength: 16384
+                                    type: string
+                                  position:
+                                    format: uint32
+                                    minimum: 0.0
+                                    nullable: true
+                                    type: integer
+                                  timestamp:
+                                    maxProperties: 1024
+                                    nullable: true
+                                    properties:
+                                      epochUnit:
+                                        enum:
+                                        - Second
+                                        - Millisecond
+                                        - Microsecond
+                                        - Nanosecond
+                                        - null
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                      format:
+                                        description: Explicit chrono strftime format. No locale/date-order guessing.
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                      naiveTimezone:
+                                        maxLength: 16384
+                                        nullable: true
+                                        type: string
+                                    type: object
+                                required:
+                                - physicalType
+                                type: object
+                                x-kubernetes-validations:
+                                - rule: '[has(self.name), has(self.position), has(self.partition)].filter(x, x).size() == 1'
+                              maxItems: 32
+                              minItems: 1
+                              nullable: true
+                              type: array
+                            generatedRowId:
+                              nullable: true
+                              type: boolean
+                            name:
+                              maxLength: 253
+                              nullable: true
+                              type: string
+                            partition:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            position:
+                              format: uint32
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
+                          type: object
+                          x-kubernetes-validations:
+                          - rule: '[has(self.name), has(self.position), has(self.partition), has(self.composite), has(self.generatedRowId)].filter(x, x).size() == 1'
+                          - rule: '!has(self.generatedRowId) || self.generatedRowId'
+                        timestamp:
+                          maxProperties: 1024
+                          nullable: true
+                          properties:
+                            epochUnit:
+                              enum:
+                              - Second
+                              - Millisecond
+                              - Microsecond
+                              - Nanosecond
+                              - null
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            format:
+                              description: Explicit chrono strftime format. No locale/date-order guessing.
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                            naiveTimezone:
+                              maxLength: 16384
+                              nullable: true
+                              type: string
+                          type: object
+                      required:
+                      - name
+                      - source
+                      type: object
+                    maxItems: 256
+                    type: array
+                  contractVersion:
+                    default: prokrust.ingestion/v1
+                    maxLength: 16384
+                    type: string
+                  limits:
+                    default:
+                      batchRows: 4096
+                      maxBatchBytes: 16777216
+                      maxColumns: 1024
+                      maxDecompressedBytes: 1099511627776
+                      maxFieldBytes: 1048576
+                      maxParquetFooterBytes: 8388608
+                      maxParquetRowGroupBytes: 268435456
+                      maxRecordBytes: 8388608
+                    maxProperties: 1024
+                    properties:
+                      batchRows:
+                        format: uint32
+                        maximum: 65536.0
+                        minimum: 1.0
+                        type: integer
+                      maxBatchBytes:
+                        format: uint32
+                        maximum: 134217728.0
+                        minimum: 1.0
+                        type: integer
+                      maxColumns:
+                        format: uint32
+                        maximum: 4096.0
+                        minimum: 1.0
+                        type: integer
+                      maxDecompressedBytes:
+                        format: uint64
+                        maximum: 9007199254740991.0
+                        minimum: 1.0
+                        type: integer
+                      maxFieldBytes:
+                        format: uint32
+                        maximum: 16777216.0
+                        minimum: 1.0
+                        type: integer
+                      maxParquetFooterBytes:
+                        format: uint32
+                        maximum: 8388608.0
+                        minimum: 1.0
+                        type: integer
+                      maxParquetRowGroupBytes:
+                        format: uint64
+                        maximum: 268435456.0
+                        minimum: 1.0
+                        type: integer
+                      maxRecordBytes:
+                        format: uint32
+                        maximum: 67108864.0
+                        minimum: 1.0
+                        type: integer
+                    required:
+                    - batchRows
+                    - maxBatchBytes
+                    - maxColumns
+                    - maxDecompressedBytes
+                    - maxFieldBytes
+                    - maxParquetFooterBytes
+                    - maxParquetRowGroupBytes
+                    - maxRecordBytes
+                    type: object
+                  maxParallelWorkers:
+                    default: 4
+                    format: uint16
+                    maximum: 65535.0
+                    minimum: 0.0
+                    type: integer
+                  naiveTimezone:
+                    maxLength: 16384
+                    nullable: true
+                    type: string
+                  partitionRoot:
+                    maxLength: 16384
+                    nullable: true
+                    type: string
+                  percentDecodePartitionValues:
+                    type: boolean
+                  readOptions:
+                    default:
+                      compression: Auto
+                      doubleQuote: true
+                      header: true
+                      quote: '"'
+                    maxProperties: 1024
+                    properties:
+                      compression:
+                        default: Auto
+                        enum:
+                        - Auto
+                        - Uncompressed
+                        - Gzip
+                        maxLength: 16384
+                        type: string
+                      delimiter:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      doubleQuote:
+                        default: true
+                        type: boolean
+                      escape:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      header:
+                        default: true
+                        type: boolean
+                      quote:
+                        default: '"'
+                        maxLength: 16384
+                        type: string
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - rule: self.contractVersion == 'prokrust.ingestion/v1'
+                - rule: self.maxParallelWorkers >= 1 && self.maxParallelWorkers <= 64
+              primaryKey:
+                maxLength: 16384
+                type: string
+              source:
+                maxProperties: 1024
+                properties:
+                  connectionRef:
+                    description: A connection is always in the Table's workspace; namespaces are not accepted.
+                    maxProperties: 1024
+                    properties:
+                      apiVersion:
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      kind:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      name:
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    - name
+                    type: object
+                  selector:
+                    maxProperties: 1024
+                    properties:
+                      config:
+                        description: Validated/defaulted by the registered provider schema at admission.
+                        maxProperties: 1024
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      schemaVersion:
+                        maxLength: 64
+                        minLength: 1
+                        type: string
+                    required:
+                    - config
+                    - schemaVersion
+                    type: object
+                required:
+                - connectionRef
+                - selector
+                type: object
+            required:
+            - columns
+            - featureTimePolicy
+            - primaryKey
+            - source
+            type: object
+            x-kubernetes-validations:
+            - rule: self.columns.exists_one(c, c.name == self.primaryKey && c.semanticType == 'Id')
+            - rule: (self.featureTimePolicy == 'RowEventTime' && has(self.eventTime) && self.columns.exists_one(c, c.name == self.eventTime && c.semanticType == 'Timestamp')) || (self.featureTimePolicy == 'Static' && !has(self.eventTime))
+            - rule: self.columns.all(c, !(c.feature && c.semanticType == 'Categorical' && c.physicalType == 'Float64'))
+            - rule: '!has(self.candidateEndTime) || self.columns.exists_one(c, c.name == self.candidateEndTime && c.semanticType == ''Timestamp'' && c.physicalType == ''TimestampNanosecondUtc'')'
+            - rule: self.columns.all(c, !has(c.multicategoricalDelimiter) || (c.semanticType == 'Multicategorical' && c.physicalType == 'ListUtf8' && size(c.multicategoricalDelimiter) > 0 && size(c.multicategoricalDelimiter) <= 64))
+            - rule: self.columns.all(c, (c.semanticType == 'Id' && c.physicalType in ['Int64', 'Utf8']) || (c.semanticType == 'Timestamp' && c.physicalType == 'TimestampNanosecondUtc') || (c.semanticType == 'Numerical' && c.physicalType in ['Int64', 'Float64']) || (c.semanticType == 'Categorical' && c.physicalType in ['Boolean', 'Int64', 'Float64', 'Utf8']) || (c.semanticType == 'Text' && c.physicalType == 'Utf8') || (c.semanticType == 'Multicategorical' && c.physicalType in ['ListBoolean', 'ListInt64', 'ListUtf8']) || c.semanticType == 'Ignored')
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              artifact:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  digest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                  mediaType:
+                    maxLength: 2048
+                    type: string
+                  sizeBytes:
+                    format: int64
+                    type: integer
+                  uri:
+                    maxLength: 2048
+                    type: string
+                required:
+                - digest
+                - mediaType
+                - sizeBytes
+                - uri
+                type: object
+                x-kubernetes-validations:
+                - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+              conditions:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    lastTransitionTime:
+                      maxLength: 2048
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      type: integer
+                    reason:
+                      maxLength: 128
+                      type: string
+                    status:
+                      enum:
+                      - 'True'
+                      - 'False'
+                      - Unknown
+                      maxLength: 2048
+                      type: string
+                    type:
+                      maxLength: 2048
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - observedGeneration
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              diagnostics:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    code:
+                      maxLength: 128
+                      type: string
+                    field:
+                      maxLength: 2048
+                      nullable: true
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    relatedResource:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        name:
+                          maxLength: 253
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    severity:
+                      enum:
+                      - Error
+                      - Warning
+                      - Info
+                      maxLength: 2048
+                      type: string
+                    sourceSpan:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        endByte:
+                          format: int64
+                          type: integer
+                        endColumn:
+                          format: int64
+                          type: integer
+                        endLine:
+                          format: int64
+                          type: integer
+                        startByte:
+                          format: int64
+                          type: integer
+                        startColumn:
+                          format: int64
+                          type: integer
+                        startLine:
+                          format: int64
+                          type: integer
+                      required:
+                      - endByte
+                      - endColumn
+                      - endLine
+                      - startByte
+                      - startColumn
+                      - startLine
+                      type: object
+                  required:
+                  - code
+                  - message
+                  - severity
+                  type: object
+                maxItems: 12
+                type: array
+              lastReconcileTime:
+                maxLength: 2048
+                nullable: true
+                type: string
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              phase:
+                enum:
+                - Pending
+                - Validating
+                - Blocked
+                - Publishing
+                - Ready
+                - Invalid
+                - Degraded
+                - null
+                maxLength: 2048
+                nullable: true
+                type: string
+              previousReady:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  artifact:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      mediaType:
+                        maxLength: 2048
+                        type: string
+                      sizeBytes:
+                        format: int64
+                        type: integer
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - mediaType
+                    - sizeBytes
+                    - uri
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                  generation:
+                    format: int64
+                    type: integer
+                  semanticDigest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                required:
+                - generation
+                - semanticDigest
+                type: object
+              semanticDigest:
+                maxLength: 71
+                nullable: true
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: Table
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

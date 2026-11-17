@@ -1,0 +1,117 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: tableprofiles.data.prokrust.ai
+spec:
+  group: data.prokrust.ai
+  names:
+    kind: TableProfile
+    plural: tableprofiles
+    singular: tableprofile
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.state
+      name: State
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for TableProfileSpec via `CustomResource`
+        properties:
+          spec:
+            maxProperties: 1024
+            properties:
+              bodyDigest:
+                maxLength: 71
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+              execution:
+                description: Admission pins, verified by the platform before planning source work.
+                maxProperties: 1024
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              idempotencyExpiresAt:
+                maxLength: 16384
+                type: string
+              referenceTime:
+                maxLength: 16384
+                type: string
+              request:
+                description: Canonical submitted StartTableProfile request (ProtoJSON), without secrets.
+                maxProperties: 1024
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              scopeDigest:
+                maxLength: 71
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+              workspaceUid:
+                maxLength: 128
+                type: string
+            required:
+            - bodyDigest
+            - execution
+            - idempotencyExpiresAt
+            - referenceTime
+            - request
+            - scopeDigest
+            - workspaceUid
+            type: object
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              accounting:
+                maxProperties: 1024
+                nullable: true
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              cleanupComplete:
+                default: false
+                type: boolean
+              execution:
+                description: Immutable operation progress references; credentials never belong here.
+                maxProperties: 1024
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              failure:
+                maxProperties: 1024
+                nullable: true
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              finishedAt:
+                maxLength: 2048
+                nullable: true
+                type: string
+              historyExpired:
+                default: false
+                type: boolean
+              result:
+                maxProperties: 1024
+                nullable: true
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              state:
+                default: ''
+                maxLength: 2048
+                type: string
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: TableProfile
+        type: object
+        x-kubernetes-validations:
+        - rule: self.spec == oldSelf.spec
+    served: true
+    storage: true
+    subresources:
+      status: {}

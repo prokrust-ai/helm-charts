@@ -1,0 +1,1217 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: predictionruns.ml.prokrust.ai
+spec:
+  group: ml.prokrust.ai
+  names:
+    kind: PredictionRun
+    plural: predictionruns
+    singular: predictionrun
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for PredictionRunSpec via `CustomResource`
+        properties:
+          spec:
+            maxProperties: 1024
+            properties:
+              anchorTime:
+                maxLength: 16384
+                nullable: true
+                type: string
+              graphSnapshotSource:
+                maxProperties: 1024
+                properties:
+                  expected:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      output:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          artifactDigest:
+                            maxLength: 71
+                            nullable: true
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          dataIdentity:
+                            maxLength: 71
+                            nullable: true
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          uid:
+                            maxLength: 128
+                            minLength: 1
+                            nullable: true
+                            type: string
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                        x-kubernetes-validations:
+                        - rule: has(self.artifactDigest) == has(self.dataIdentity)
+                      producerUid:
+                        maxLength: 128
+                        minLength: 1
+                        nullable: true
+                        type: string
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  kind:
+                    enum:
+                    - SnapshotPreparation
+                    - GraphSnapshot
+                    maxLength: 16384
+                    type: string
+                  name:
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+                x-kubernetes-validations:
+                - rule: self.kind != 'GraphSnapshot' || !has(self.expected) || !has(self.expected.producerUid) || !has(self.expected.output) || !has(self.expected.output.uid) || self.expected.producerUid == self.expected.output.uid
+              modelSource:
+                maxProperties: 1024
+                properties:
+                  expected:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      output:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          artifactDigest:
+                            maxLength: 71
+                            nullable: true
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          uid:
+                            maxLength: 128
+                            minLength: 1
+                            nullable: true
+                            type: string
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      producerUid:
+                        maxLength: 128
+                        minLength: 1
+                        nullable: true
+                        type: string
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  kind:
+                    enum:
+                    - TrainingStudy
+                    - TrainingRun
+                    - Model
+                    maxLength: 16384
+                    type: string
+                  name:
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+                x-kubernetes-validations:
+                - rule: self.kind != 'Model' || !has(self.expected) || !has(self.expected.producerUid) || !has(self.expected.output) || !has(self.expected.output.uid) || self.expected.producerUid == self.expected.output.uid
+              output:
+                maxProperties: 1024
+                properties:
+                  destination:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      connectionRef:
+                        maxProperties: 1024
+                        properties:
+                          kind:
+                            description: Namespace-local connector reference. Legacy references default to S3.
+                            enum:
+                            - S3Connection
+                            - GCSConnection
+                            - BigQueryConnection
+                            maxLength: 16384
+                            type: string
+                          name:
+                            maxLength: 253
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      dataset:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      prefix:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      table:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      type:
+                        enum:
+                        - S3
+                        - GCS
+                        - BigQuery
+                        maxLength: 16384
+                        type: string
+                      writeMode:
+                        enum:
+                        - WriteIfEmpty
+                        - Append
+                        - Overwrite
+                        - null
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                    required:
+                    - connectionRef
+                    - type
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                    x-kubernetes-validations:
+                    - rule: (self.type in ['S3', 'GCS'] && has(self.prefix) && self.prefix != '' && !has(self.dataset) && !has(self.table) && !has(self.writeMode)) || (self.type == 'BigQuery' && has(self.dataset) && self.dataset != '' && has(self.table) && self.table != '' && !has(self.prefix))
+                    - rule: (self.type == 'S3' && (!has(self.connectionRef.kind) || self.connectionRef.kind == 'S3Connection')) || (self.type == 'GCS' && has(self.connectionRef.kind) && self.connectionRef.kind == 'GCSConnection') || (self.type == 'BigQuery' && has(self.connectionRef.kind) && self.connectionRef.kind == 'BigQueryConnection')
+                  format:
+                    enum:
+                    - Parquet
+                    - Csv
+                    - Tsv
+                    maxLength: 16384
+                    type: string
+                  partitionCount:
+                    format: int32
+                    type: integer
+                required:
+                - format
+                - partitionCount
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              population:
+                description: Omitted selects missing static labels; AllEligible includes labeled rows.
+                enum:
+                - GeneratedMissing
+                - AllEligible
+                - null
+                maxLength: 16384
+                nullable: true
+                type: string
+              predictorResources:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  limits:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    nullable: true
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  requests:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - requests
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              queryRef:
+                description: Optional compatible scoring query; absent uses the model's training query.
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  name:
+                    maxLength: 253
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              resources:
+                maxProperties: 1024
+                properties:
+                  limits:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    nullable: true
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  requests:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - requests
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - graphSnapshotSource
+            - modelSource
+            - output
+            - resources
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+            x-kubernetes-validations:
+            - rule: self.output.partitionCount > 0
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              ballista:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  disposition:
+                    enum:
+                    - Unknown
+                    - Clean
+                    - Ambiguous
+                    maxLength: 2048
+                    type: string
+                  queryAttemptIds:
+                    items:
+                      maxLength: 2048
+                      type: string
+                    maxItems: 64
+                    type: array
+                required:
+                - disposition
+                - queryAttemptIds
+                type: object
+              conditions:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    lastTransitionTime:
+                      maxLength: 2048
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      type: integer
+                    reason:
+                      maxLength: 128
+                      type: string
+                    status:
+                      enum:
+                      - 'True'
+                      - 'False'
+                      - Unknown
+                      maxLength: 2048
+                      type: string
+                    type:
+                      maxLength: 2048
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - observedGeneration
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              diagnostics:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    code:
+                      maxLength: 128
+                      type: string
+                    field:
+                      maxLength: 2048
+                      nullable: true
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    relatedResource:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        name:
+                          maxLength: 253
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    severity:
+                      enum:
+                      - Error
+                      - Warning
+                      - Info
+                      maxLength: 2048
+                      type: string
+                    sourceSpan:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        endByte:
+                          format: int64
+                          type: integer
+                        endColumn:
+                          format: int64
+                          type: integer
+                        endLine:
+                          format: int64
+                          type: integer
+                        startByte:
+                          format: int64
+                          type: integer
+                        startColumn:
+                          format: int64
+                          type: integer
+                        startLine:
+                          format: int64
+                          type: integer
+                      required:
+                      - endByte
+                      - endColumn
+                      - endLine
+                      - startByte
+                      - startColumn
+                      - startLine
+                      type: object
+                  required:
+                  - code
+                  - message
+                  - severity
+                  type: object
+                maxItems: 12
+                type: array
+              executionDigest:
+                maxLength: 71
+                nullable: true
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+              failure:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  at:
+                    maxLength: 2048
+                    type: string
+                  code:
+                    maxLength: 128
+                    type: string
+                  details:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      mediaType:
+                        maxLength: 2048
+                        type: string
+                      sizeBytes:
+                        format: int64
+                        type: integer
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - mediaType
+                    - sizeBytes
+                    - uri
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                  message:
+                    maxLength: 1024
+                    type: string
+                  relatedResource:
+                    description: Exact related resource identity in the same namespace as the status owner.
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      apiVersion:
+                        maxLength: 2048
+                        type: string
+                      executionDigest:
+                        maxLength: 71
+                        nullable: true
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                      kind:
+                        maxLength: 2048
+                        type: string
+                      name:
+                        maxLength: 253
+                        type: string
+                      recoveryOrdinal:
+                        format: int32
+                        nullable: true
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    - name
+                    - uid
+                    type: object
+                  retryable:
+                    type: boolean
+                  stage:
+                    description: Safe execution stage identifier, when the failing stage is known.
+                    maxLength: 2048
+                    nullable: true
+                    type: string
+                  suggestedAction:
+                    description: Actionable guidance without credentials or raw provider response bodies.
+                    maxLength: 2048
+                    nullable: true
+                    type: string
+                required:
+                - at
+                - code
+                - message
+                - retryable
+                type: object
+              failureHistory:
+                description: Superseded failures retained for bounded retry history, not active errors.
+                items:
+                  maxProperties: 1024
+                  properties:
+                    at:
+                      maxLength: 2048
+                      type: string
+                    code:
+                      maxLength: 128
+                      type: string
+                    details:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        digest:
+                          maxLength: 71
+                          pattern: ^sha256:[0-9a-f]{64}$
+                          type: string
+                          x-kubernetes-validations:
+                          - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                        mediaType:
+                          maxLength: 2048
+                          type: string
+                        sizeBytes:
+                          format: int64
+                          type: integer
+                        uri:
+                          maxLength: 2048
+                          type: string
+                      required:
+                      - digest
+                      - mediaType
+                      - sizeBytes
+                      - uri
+                      type: object
+                      x-kubernetes-validations:
+                      - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                    message:
+                      maxLength: 1024
+                      type: string
+                    relatedResource:
+                      description: Exact related resource identity in the same namespace as the status owner.
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        apiVersion:
+                          maxLength: 2048
+                          type: string
+                        executionDigest:
+                          maxLength: 71
+                          nullable: true
+                          pattern: ^sha256:[0-9a-f]{64}$
+                          type: string
+                        kind:
+                          maxLength: 2048
+                          type: string
+                        name:
+                          maxLength: 253
+                          type: string
+                        recoveryOrdinal:
+                          format: int32
+                          nullable: true
+                          type: integer
+                        uid:
+                          maxLength: 128
+                          type: string
+                      required:
+                      - apiVersion
+                      - kind
+                      - name
+                      - uid
+                      type: object
+                    retryable:
+                      type: boolean
+                    stage:
+                      description: Safe execution stage identifier, when the failing stage is known.
+                      maxLength: 2048
+                      nullable: true
+                      type: string
+                    suggestedAction:
+                      description: Actionable guidance without credentials or raw provider response bodies.
+                      maxLength: 2048
+                      nullable: true
+                      type: string
+                  required:
+                  - at
+                  - code
+                  - message
+                  - retryable
+                  type: object
+                maxItems: 32
+                type: array
+              finishedAt:
+                maxLength: 2048
+                nullable: true
+                type: string
+              input:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  digest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                  mediaType:
+                    maxLength: 2048
+                    type: string
+                  sizeBytes:
+                    format: int64
+                    type: integer
+                  uri:
+                    maxLength: 2048
+                    type: string
+                required:
+                - digest
+                - mediaType
+                - sizeBytes
+                - uri
+                type: object
+                x-kubernetes-validations:
+                - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              outputs:
+                default: {}
+                maxProperties: 1024
+                properties:
+                  model:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      artifactDigest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                      name:
+                        maxLength: 253
+                        type: string
+                      uid:
+                        maxLength: 128
+                        type: string
+                    required:
+                    - artifactDigest
+                    - name
+                    - uid
+                    type: object
+                type: object
+              phase:
+                enum:
+                - Pending
+                - Validating
+                - Freezing
+                - WaitingForProducerCapacity
+                - Queued
+                - Running
+                - Verifying
+                - Committing
+                - Succeeded
+                - Cancelling
+                - Cancelled
+                - Failed
+                - Deleting
+                - null
+                maxLength: 2048
+                nullable: true
+                type: string
+              policyRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  generation:
+                    format: int64
+                    type: integer
+                  name:
+                    maxLength: 253
+                    type: string
+                  releaseLock:
+                    maxProperties: 1024
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - uri
+                    type: object
+                  semanticDigest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                  uid:
+                    maxLength: 128
+                    type: string
+                required:
+                - generation
+                - name
+                - releaseLock
+                - semanticDigest
+                - uid
+                type: object
+              progress:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  activeUnits:
+                    format: uint32
+                    maximum: 4096.0
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  completedUnits:
+                    format: uint32
+                    maximum: 4096.0
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  pendingUnits:
+                    format: uint32
+                    maximum: 4096.0
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  plannedUnits:
+                    format: uint32
+                    maximum: 4096.0
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  waitingForCapacityPods:
+                    format: uint32
+                    maximum: 4096.0
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                type: object
+              publication:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  candidate:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      mediaType:
+                        maxLength: 2048
+                        type: string
+                      sizeBytes:
+                        format: int64
+                        type: integer
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - mediaType
+                    - sizeBytes
+                    - uri
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                  committed:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      digest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      mediaType:
+                        maxLength: 2048
+                        type: string
+                      sizeBytes:
+                        format: int64
+                        type: integer
+                      uri:
+                        maxLength: 2048
+                        type: string
+                    required:
+                    - digest
+                    - mediaType
+                    - sizeBytes
+                    - uri
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                  phase:
+                    enum:
+                    - None
+                    - Candidate
+                    - Committed
+                    - Rejected
+                    maxLength: 2048
+                    type: string
+                required:
+                - phase
+                type: object
+              recoveryCount:
+                format: int32
+                nullable: true
+                type: integer
+              result:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  digest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                  mediaType:
+                    maxLength: 2048
+                    type: string
+                  sizeBytes:
+                    format: int64
+                    type: integer
+                  uri:
+                    maxLength: 2048
+                    type: string
+                required:
+                - digest
+                - mediaType
+                - sizeBytes
+                - uri
+                type: object
+                x-kubernetes-validations:
+                - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+              sourceBindings:
+                default: {}
+                maxProperties: 1024
+                properties:
+                  graphSnapshot:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      output:
+                        description: Exact captured input; names alone never authorize graph input reuse.
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          artifactDigest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          dataIdentity:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          name:
+                            maxLength: 253
+                            type: string
+                          uid:
+                            maxLength: 128
+                            type: string
+                        required:
+                        - artifactDigest
+                        - dataIdentity
+                        - name
+                        - uid
+                        type: object
+                      producer:
+                        description: Persist before waiting on output. Never adopt another UID after this point.
+                        maxProperties: 1024
+                        properties:
+                          intentDigest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          kind:
+                            maxLength: 32
+                            minLength: 1
+                            pattern: ^(SnapshotPreparation|GraphSnapshot|TrainingStudy|TrainingRun|Model)$
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          uid:
+                            maxLength: 128
+                            minLength: 1
+                            type: string
+                        required:
+                        - intentDigest
+                        - kind
+                        - name
+                        - uid
+                        type: object
+                    required:
+                    - producer
+                    type: object
+                  model:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      output:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          artifactDigest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          name:
+                            maxLength: 253
+                            type: string
+                          uid:
+                            maxLength: 128
+                            type: string
+                        required:
+                        - artifactDigest
+                        - name
+                        - uid
+                        type: object
+                      producer:
+                        description: Persist before waiting on output. Never adopt another UID after this point.
+                        maxProperties: 1024
+                        properties:
+                          intentDigest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                          kind:
+                            maxLength: 32
+                            minLength: 1
+                            pattern: ^(SnapshotPreparation|GraphSnapshot|TrainingStudy|TrainingRun|Model)$
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          uid:
+                            maxLength: 128
+                            minLength: 1
+                            type: string
+                        required:
+                        - intentDigest
+                        - kind
+                        - name
+                        - uid
+                        type: object
+                      trainingRun:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          name:
+                            maxLength: 253
+                            type: string
+                          uid:
+                            maxLength: 128
+                            type: string
+                        required:
+                        - name
+                        - uid
+                        type: object
+                    required:
+                    - producer
+                    type: object
+                type: object
+              sourceResolution:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  digest:
+                    maxLength: 71
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                  mediaType:
+                    maxLength: 2048
+                    type: string
+                  sizeBytes:
+                    format: int64
+                    type: integer
+                  uri:
+                    maxLength: 2048
+                    type: string
+                required:
+                - digest
+                - mediaType
+                - sizeBytes
+                - uri
+                type: object
+                x-kubernetes-validations:
+                - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+              startedAt:
+                maxLength: 2048
+                nullable: true
+                type: string
+              trainingDiagnostics:
+                description: Registered before dispatch. Contains only storage and execution identities.
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  attemptRoot:
+                    maxLength: 2048
+                    type: string
+                  attempts:
+                    items:
+                      description: A trainer Pod observed through the exact owner Workflow and Argo retry node.
+                      maxProperties: 1024
+                      properties:
+                        manifest:
+                          maxProperties: 1024
+                          nullable: true
+                          properties:
+                            digest:
+                              maxLength: 71
+                              pattern: ^sha256:[0-9a-f]{64}$
+                              type: string
+                              x-kubernetes-validations:
+                              - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                            mediaType:
+                              maxLength: 2048
+                              type: string
+                            sizeBytes:
+                              format: int64
+                              type: integer
+                            uri:
+                              maxLength: 2048
+                              type: string
+                          required:
+                          - digest
+                          - mediaType
+                          - sizeBytes
+                          - uri
+                          type: object
+                          x-kubernetes-validations:
+                          - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                        phase:
+                          enum:
+                          - Pending
+                          - Validating
+                          - Freezing
+                          - WaitingForProducerCapacity
+                          - Queued
+                          - Running
+                          - Verifying
+                          - Committing
+                          - Succeeded
+                          - Cancelling
+                          - Cancelled
+                          - Failed
+                          - Deleting
+                          maxLength: 2048
+                          type: string
+                        recoveryOrdinal:
+                          format: uint32
+                          minimum: 0.0
+                          type: integer
+                        retryOrdinal:
+                          format: uint32
+                          minimum: 0.0
+                          type: integer
+                        uid:
+                          maxLength: 128
+                          type: string
+                        workflowUid:
+                          maxLength: 128
+                          type: string
+                      required:
+                      - phase
+                      - recoveryOrdinal
+                      - retryOrdinal
+                      - uid
+                      - workflowUid
+                      type: object
+                    maxItems: 96
+                    type: array
+                  sealed:
+                    description: A sealed, immutable history attached to the verified training publication.
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      attemptUid:
+                        maxLength: 128
+                        type: string
+                      manifest:
+                        maxProperties: 1024
+                        properties:
+                          digest:
+                            maxLength: 71
+                            pattern: ^sha256:[0-9a-f]{64}$
+                            type: string
+                            x-kubernetes-validations:
+                            - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                          mediaType:
+                            maxLength: 2048
+                            type: string
+                          sizeBytes:
+                            format: int64
+                            type: integer
+                          uri:
+                            maxLength: 2048
+                            type: string
+                        required:
+                        - digest
+                        - mediaType
+                        - sizeBytes
+                        - uri
+                        type: object
+                        x-kubernetes-validations:
+                        - rule: self.sizeBytes >= 0 && self.sizeBytes <= 9007199254740991
+                    required:
+                    - attemptUid
+                    - manifest
+                    type: object
+                  store:
+                    maxProperties: 1024
+                    properties:
+                      generation:
+                        format: int64
+                        type: integer
+                      name:
+                        maxLength: 253
+                        type: string
+                      semanticDigest:
+                        maxLength: 71
+                        pattern: ^sha256:[0-9a-f]{64}$
+                        type: string
+                        x-kubernetes-validations:
+                        - rule: self.matches('^sha256:[0-9a-f]{64}$')
+                      uid:
+                        maxLength: 128
+                        type: string
+                    required:
+                    - generation
+                    - name
+                    - semanticDigest
+                    - uid
+                    type: object
+                required:
+                - attemptRoot
+                - store
+                type: object
+              workflowRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  apiVersion:
+                    maxLength: 2048
+                    type: string
+                  executionDigest:
+                    maxLength: 71
+                    nullable: true
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                  kind:
+                    maxLength: 2048
+                    type: string
+                  name:
+                    maxLength: 253
+                    type: string
+                  recoveryOrdinal:
+                    format: int32
+                    nullable: true
+                    type: integer
+                  uid:
+                    maxLength: 128
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                - uid
+                type: object
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: PredictionRun
+        type: object
+        x-kubernetes-validations:
+        - rule: self.spec == oldSelf.spec
+    served: true
+    storage: true
+    subresources:
+      status: {}

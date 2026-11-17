@@ -1,0 +1,74 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: prokrustaccessbindings.platform.prokrust.ai
+spec:
+  group: platform.prokrust.ai
+  names:
+    kind: ProkrustAccessBinding
+    plural: prokrustaccessbindings
+    singular: prokrustaccessbinding
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.providerRef
+      name: Provider
+      type: string
+    - jsonPath: .spec.serviceAccountRef.name
+      name: ServiceAccount
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ProkrustAccessBindingSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              A namespace-owned eligibility rule within the platform's approved target ceiling.
+              Kubernetes validates structure; the Web API compiles and evaluates the CEL rule
+              against validated subject, email, groups and approved claims. Only boolean true
+              grants a context, and providerRef is always matched outside the expression.
+            maxProperties: 1024
+            properties:
+              displayName:
+                maxLength: 256
+                minLength: 1
+                nullable: true
+                type: string
+              providerRef:
+                maxLength: 253
+                minLength: 1
+                type: string
+              rule:
+                maxLength: 4096
+                minLength: 1
+                type: string
+              serviceAccountRef:
+                description: Same-namespace KSA. This reference does not itself approve impersonation.
+                maxProperties: 1024
+                properties:
+                  name:
+                    maxLength: 253
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - providerRef
+            - rule
+            - serviceAccountRef
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: ProkrustAccessBinding
+        type: object
+    served: true
+    storage: true

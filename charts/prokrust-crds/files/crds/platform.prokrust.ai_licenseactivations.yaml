@@ -1,0 +1,156 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: licenseactivations.platform.prokrust.ai
+spec:
+  group: platform.prokrust.ai
+  names:
+    kind: LicenseActivation
+    plural: licenseactivations
+    singular: licenseactivation
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .status.expiresAt
+      name: Expires
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for LicenseActivationSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              Exactly one activation named default per installation namespace. Secret references
+              are local to that namespace; private key material never belongs in spec or status.
+            maxProperties: 1024
+            properties:
+              credentialSecretRef:
+                maxProperties: 1024
+                properties:
+                  name:
+                    maxLength: 253
+                    type: string
+                required:
+                - name
+                type: object
+              entitlementSecretRef:
+                maxProperties: 1024
+                properties:
+                  name:
+                    maxLength: 253
+                    type: string
+                required:
+                - name
+                type: object
+              identitySecretRef:
+                maxProperties: 1024
+                properties:
+                  name:
+                    maxLength: 253
+                    type: string
+                required:
+                - name
+                type: object
+              serverUrl:
+                maxLength: 16384
+                type: string
+                x-kubernetes-validations:
+                - rule: self.startsWith('https://')
+            required:
+            - credentialSecretRef
+            - entitlementSecretRef
+            - identitySecretRef
+            - serverUrl
+            type: object
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              activationId:
+                maxLength: 2048
+                nullable: true
+                type: string
+              challengeId:
+                maxLength: 2048
+                nullable: true
+                type: string
+              conditions:
+                default: []
+                items:
+                  maxProperties: 1024
+                  properties:
+                    lastTransitionTime:
+                      maxLength: 2048
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      type: integer
+                    reason:
+                      maxLength: 128
+                      type: string
+                    status:
+                      enum:
+                      - 'True'
+                      - 'False'
+                      - Unknown
+                      maxLength: 2048
+                      type: string
+                    type:
+                      maxLength: 2048
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - observedGeneration
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              dnsName:
+                maxLength: 253
+                nullable: true
+                type: string
+              dnsValue:
+                maxLength: 2048
+                nullable: true
+                type: string
+              expiresAt:
+                maxLength: 2048
+                nullable: true
+                type: string
+              installationId:
+                maxLength: 2048
+                nullable: true
+                type: string
+              renewAfter:
+                maxLength: 2048
+                nullable: true
+                type: string
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: LicenseActivation
+        type: object
+        x-kubernetes-validations:
+        - rule: self.metadata.name == 'default'
+    served: true
+    storage: true
+    subresources:
+      status: {}

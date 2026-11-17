@@ -1,0 +1,98 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: bigqueryconnections.google.sources.prokrust.ai
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  group: google.sources.prokrust.ai
+  scope: Namespaced
+  names:
+    kind: BigQueryConnection
+    plural: bigqueryconnections
+    singular: bigqueryconnection
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              x-kubernetes-validations:
+                - rule: self == oldSelf
+                  message: Connection spec is immutable
+                - rule: "(!has(self.authMode) || self.authMode == 'serviceAccountKey') == has(self.credentialsSecretRef)"
+                  message: Only serviceAccountKey authentication accepts a credentials Secret
+                - rule: "(has(self.authMode) && self.authMode == 'federation') == has(self.federationAudience)"
+                  message: Only federation authentication requires a Google workload identity provider audience
+              required: [project, billingProject, location, datasets, expectedServiceAccountEmail]
+              properties:
+                authMode: {type: string, enum: [serviceAccountKey, impersonation, federation]}
+                federationAudience: {type: string, maxLength: 256, pattern: '^//iam[.]googleapis[.]com/projects/[0-9]{1,20}/locations/global/workloadIdentityPools/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]/providers/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$'}
+                project: {type: string, minLength: 6, maxLength: 30, pattern: "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"}
+                billingProject: {type: string, minLength: 6, maxLength: 30, pattern: "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"}
+                location: {type: string, minLength: 2, maxLength: 40, pattern: "^[a-z][a-z0-9-]*[a-z0-9]$"}
+                datasets:
+                  type: array
+                  minItems: 1
+                  maxItems: 16
+                  items: {type: string, minLength: 1, maxLength: 256, pattern: "^[A-Za-z0-9_]+$"}
+                  x-kubernetes-validations:
+                    - rule: self.all(d, self.indexOf(d) == self.lastIndexOf(d))
+                      message: Dataset names must be unique
+                expectedServiceAccountEmail: {type: string, minLength: 20, maxLength: 254, pattern: "^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*[.]iam[.]gserviceaccount[.]com$"}
+                credentialsSecretRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 253, pattern: "^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$"}
+            status:
+              type: object
+              properties:
+                observedGeneration: {type: integer, format: int64}
+                configDigest: {type: string}
+                resolvedConfigRefs:
+                  type: array
+                  items:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                rootUIDs:
+                  type: object
+                  additionalProperties: {type: string}
+                releasedEpoch: {type: integer, format: int64}
+                runtime:
+                  type: object
+                  properties:
+                    serviceName: {type: string}
+                    serviceUID: {type: string}
+                    deploymentUID: {type: string}
+                    port: {type: integer, minimum: 1, maximum: 65535}
+                    providerId: {type: string}
+                    providerMajor: {type: integer, minimum: 0}
+                    protocolMajor: {type: integer, minimum: 1}
+                    readyReplicas: {type: integer, minimum: 0}
+                    releaseVersions:
+                      type: array
+                      items: {type: string}
+                    admissionEpoch: {type: integer, format: int64}
+                    acceptsNewScans: {type: boolean}
+                conditions:
+                  type: array
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys: [type]
+                  items:
+                    type: object
+                    required: [type, status, reason, message, lastTransitionTime]
+                    properties:
+                      type: {type: string}
+                      status: {type: string, enum: ["True", "False", "Unknown"]}
+                      reason: {type: string}
+                      message: {type: string}
+                      observedGeneration: {type: integer, format: int64}
+                      lastTransitionTime: {type: string, format: date-time}

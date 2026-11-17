@@ -1,0 +1,605 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: prokrust-crdgen
+    app.kubernetes.io/name: prokrust
+    app.kubernetes.io/part-of: prokrust
+  name: artifactstores.platform.prokrust.ai
+spec:
+  group: platform.prokrust.ai
+  names:
+    kind: ArtifactStore
+    plural: artifactstores
+    singular: artifactstore
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Accepted')].status
+      name: Accepted
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ArtifactStoreSpec via `CustomResource`
+        properties:
+          spec:
+            maxProperties: 1024
+            properties:
+              ballistaAuth:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  backend:
+                    enum:
+                    - S3
+                    - GCS
+                    maxLength: 16384
+                    type: string
+                  gcs:
+                    description: |-
+                      ADC configuration contains no credentials. External-account configuration is
+                      mounted from a namespace-local ConfigMap; projected tokens rotate in the pod.
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      federation:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          audience:
+                            maxLength: 16384
+                            type: string
+                          configKey:
+                            maxLength: 16384
+                            type: string
+                          configMapRef:
+                            maxProperties: 1024
+                            properties:
+                              name:
+                                maxLength: 253
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - audience
+                        - configKey
+                        - configMapRef
+                        type: object
+                        x-kubernetes-validations:
+                        - rule: self.audience != '' && self.configKey != ''
+                    type: object
+                  s3:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      secretRef:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          accessKeyIdKey:
+                            maxLength: 16384
+                            type: string
+                          name:
+                            maxLength: 253
+                            type: string
+                          secretAccessKeyKey:
+                            maxLength: 16384
+                            type: string
+                          sessionTokenKey:
+                            maxLength: 16384
+                            nullable: true
+                            type: string
+                        required:
+                        - accessKeyIdKey
+                        - name
+                        - secretAccessKeyKey
+                        type: object
+                        x-kubernetes-validations:
+                        - rule: (self.accessKeyIdKey == 'AWS_ACCESS_KEY_ID' && self.secretAccessKeyKey == 'AWS_SECRET_ACCESS_KEY' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'AWS_SESSION_TOKEN')) || (self.accessKeyIdKey == 'accessKeyId' && self.secretAccessKeyKey == 'secretAccessKey' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'sessionToken'))
+                      type:
+                        enum:
+                        - Secret
+                        - WorkloadIdentity
+                        maxLength: 16384
+                        type: string
+                      workloadIdentity:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          provider:
+                            enum:
+                            - IRSA
+                            - EKSPodIdentity
+                            maxLength: 16384
+                            type: string
+                          roleArn:
+                            maxLength: 2048
+                            pattern: ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/([A-Za-z0-9+=,.@_-]+/)*[A-Za-z0-9+=,.@_-]{1,64}$
+                            type: string
+                        required:
+                        - provider
+                        - roleArn
+                        type: object
+                    required:
+                    - type
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: (self.type == 'Secret' && has(self.secretRef) && !has(self.workloadIdentity)) || (self.type == 'WorkloadIdentity' && has(self.workloadIdentity) && !has(self.secretRef))
+                required:
+                - backend
+                type: object
+                x-kubernetes-validations:
+                - rule: (self.backend == 'S3' && has(self.s3) && !has(self.gcs)) || (self.backend == 'GCS' && has(self.gcs) && !has(self.s3))
+              probeResources:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  limits:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    nullable: true
+                    type: object
+                  requests:
+                    additionalProperties:
+                      maxLength: 16384
+                      type: string
+                    maxProperties: 1024
+                    type: object
+                required:
+                - requests
+                type: object
+              publication:
+                enum:
+                - ManifestLast
+                maxLength: 16384
+                type: string
+              retentionPolicy:
+                enum:
+                - Retain
+                maxLength: 16384
+                type: string
+              storage:
+                maxProperties: 1024
+                properties:
+                  backend:
+                    enum:
+                    - S3
+                    - GCS
+                    maxLength: 16384
+                    type: string
+                  gcs:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      auth:
+                        default: {}
+                        description: |-
+                          ADC configuration contains no credentials. External-account configuration is
+                          mounted from a namespace-local ConfigMap; projected tokens rotate in the pod.
+                        maxProperties: 1024
+                        properties:
+                          federation:
+                            maxProperties: 1024
+                            nullable: true
+                            properties:
+                              audience:
+                                maxLength: 16384
+                                type: string
+                              configKey:
+                                maxLength: 16384
+                                type: string
+                              configMapRef:
+                                maxProperties: 1024
+                                properties:
+                                  name:
+                                    maxLength: 253
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                            required:
+                            - audience
+                            - configKey
+                            - configMapRef
+                            type: object
+                            x-kubernetes-validations:
+                            - rule: self.audience != '' && self.configKey != ''
+                        type: object
+                      bucket:
+                        maxLength: 16384
+                        type: string
+                      prefix:
+                        maxLength: 16384
+                        type: string
+                      probeResources:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          limits:
+                            additionalProperties:
+                              maxLength: 16384
+                              type: string
+                            maxProperties: 1024
+                            nullable: true
+                            type: object
+                          requests:
+                            additionalProperties:
+                              maxLength: 16384
+                              type: string
+                            maxProperties: 1024
+                            type: object
+                        required:
+                        - requests
+                        type: object
+                      serviceAccountName:
+                        maxLength: 253
+                        nullable: true
+                        type: string
+                    required:
+                    - bucket
+                    - prefix
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.bucket != '' && self.prefix != '' && !self.prefix.startsWith('/') && !self.prefix.contains('//') && !self.prefix.split('/').exists(x, x == '.' || x == '..')
+                  s3:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      auth:
+                        maxProperties: 1024
+                        properties:
+                          secretRef:
+                            maxProperties: 1024
+                            nullable: true
+                            properties:
+                              accessKeyIdKey:
+                                maxLength: 16384
+                                type: string
+                              name:
+                                maxLength: 253
+                                type: string
+                              secretAccessKeyKey:
+                                maxLength: 16384
+                                type: string
+                              sessionTokenKey:
+                                maxLength: 16384
+                                nullable: true
+                                type: string
+                            required:
+                            - accessKeyIdKey
+                            - name
+                            - secretAccessKeyKey
+                            type: object
+                            x-kubernetes-validations:
+                            - rule: (self.accessKeyIdKey == 'AWS_ACCESS_KEY_ID' && self.secretAccessKeyKey == 'AWS_SECRET_ACCESS_KEY' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'AWS_SESSION_TOKEN')) || (self.accessKeyIdKey == 'accessKeyId' && self.secretAccessKeyKey == 'secretAccessKey' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'sessionToken'))
+                          type:
+                            enum:
+                            - Secret
+                            - WorkloadIdentity
+                            maxLength: 16384
+                            type: string
+                          workloadIdentity:
+                            maxProperties: 1024
+                            nullable: true
+                            properties:
+                              provider:
+                                enum:
+                                - IRSA
+                                - EKSPodIdentity
+                                maxLength: 16384
+                                type: string
+                              roleArn:
+                                maxLength: 2048
+                                pattern: ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/([A-Za-z0-9+=,.@_-]+/)*[A-Za-z0-9+=,.@_-]{1,64}$
+                                type: string
+                            required:
+                            - provider
+                            - roleArn
+                            type: object
+                        required:
+                        - type
+                        type: object
+                        x-kubernetes-validations:
+                        - rule: (self.type == 'Secret' && has(self.secretRef) && !has(self.workloadIdentity)) || (self.type == 'WorkloadIdentity' && has(self.workloadIdentity) && !has(self.secretRef))
+                      bucket:
+                        maxLength: 16384
+                        type: string
+                      endpoint:
+                        maxLength: 16384
+                        nullable: true
+                        type: string
+                      forcePathStyle:
+                        type: boolean
+                      prefix:
+                        maxLength: 16384
+                        type: string
+                      probeResources:
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          limits:
+                            additionalProperties:
+                              maxLength: 16384
+                              type: string
+                            maxProperties: 1024
+                            nullable: true
+                            type: object
+                          requests:
+                            additionalProperties:
+                              maxLength: 16384
+                              type: string
+                            maxProperties: 1024
+                            type: object
+                        required:
+                        - requests
+                        type: object
+                      region:
+                        maxLength: 16384
+                        type: string
+                      serviceAccountName:
+                        maxLength: 253
+                        nullable: true
+                        type: string
+                      tls:
+                        maxProperties: 1024
+                        properties:
+                          caBundleSecretRef:
+                            maxProperties: 1024
+                            nullable: true
+                            properties:
+                              name:
+                                maxLength: 253
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          verify:
+                            type: boolean
+                        required:
+                        - verify
+                        type: object
+                    required:
+                    - auth
+                    - bucket
+                    - forcePathStyle
+                    - prefix
+                    - region
+                    - tls
+                    type: object
+                    x-kubernetes-validations:
+                    - rule: self.prefix != '' && !self.prefix.startsWith('/') && !self.prefix.contains('//') && !self.prefix.split('/').exists(x, x == '.' || x == '..')
+                    - rule: self.auth.type != 'WorkloadIdentity' || (has(self.serviceAccountName) && self.serviceAccountName.matches('^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$') && self.tls.verify && !has(self.tls.caBundleSecretRef))
+                    - rule: self.auth.type != 'WorkloadIdentity' || !has(self.endpoint) || self.endpoint == 'https://s3.' + self.region + '.amazonaws.com' || self.endpoint == 'https://s3.dualstack.' + self.region + '.amazonaws.com' || self.endpoint == 'https://s3.' + self.region + '.amazonaws.com.cn' || self.endpoint == 'https://s3.dualstack.' + self.region + '.amazonaws.com.cn'
+                    - rule: 'self.auth.type != ''WorkloadIdentity'' || !has(self.endpoint) || (self.auth.workloadIdentity.roleArn.startsWith(''arn:aws-cn:'') ? (self.region.startsWith(''cn-'') && self.endpoint.endsWith(''.amazonaws.com.cn'')) : (self.endpoint.endsWith(''.amazonaws.com'') && (self.auth.workloadIdentity.roleArn.startsWith(''arn:aws-us-gov:'') ? self.region.startsWith(''us-gov-'') : (!self.region.startsWith(''cn-'') && !self.region.startsWith(''us-gov-'')))))'
+                required:
+                - backend
+                type: object
+                x-kubernetes-validations:
+                - rule: (self.backend == 'S3' && has(self.s3) && !has(self.gcs)) || (self.backend == 'GCS' && has(self.gcs) && !has(self.s3))
+            required:
+            - publication
+            - retentionPolicy
+            - storage
+            type: object
+            x-kubernetes-validations:
+            - rule: '!has(self.ballistaAuth) || self.ballistaAuth.backend == self.storage.backend'
+          status:
+            maxProperties: 1024
+            nullable: true
+            properties:
+              capabilities:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  delete:
+                    nullable: true
+                    type: boolean
+                  get:
+                    type: boolean
+                  head:
+                    type: boolean
+                  list:
+                    nullable: true
+                    type: boolean
+                  put:
+                    nullable: true
+                    type: boolean
+                required:
+                - get
+                - head
+                type: object
+              conditions:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    lastTransitionTime:
+                      maxLength: 2048
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      type: integer
+                    reason:
+                      maxLength: 128
+                      type: string
+                    status:
+                      enum:
+                      - 'True'
+                      - 'False'
+                      - Unknown
+                      maxLength: 2048
+                      type: string
+                    type:
+                      maxLength: 2048
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - observedGeneration
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              diagnostics:
+                items:
+                  maxProperties: 1024
+                  properties:
+                    code:
+                      maxLength: 128
+                      type: string
+                    field:
+                      maxLength: 2048
+                      nullable: true
+                      type: string
+                    message:
+                      maxLength: 1024
+                      type: string
+                    relatedResource:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        name:
+                          maxLength: 253
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    severity:
+                      enum:
+                      - Error
+                      - Warning
+                      - Info
+                      maxLength: 2048
+                      type: string
+                    sourceSpan:
+                      maxProperties: 1024
+                      nullable: true
+                      properties:
+                        endByte:
+                          format: int64
+                          type: integer
+                        endColumn:
+                          format: int64
+                          type: integer
+                        endLine:
+                          format: int64
+                          type: integer
+                        startByte:
+                          format: int64
+                          type: integer
+                        startColumn:
+                          format: int64
+                          type: integer
+                        startLine:
+                          format: int64
+                          type: integer
+                      required:
+                      - endByte
+                      - endColumn
+                      - endLine
+                      - startByte
+                      - startColumn
+                      - startLine
+                      type: object
+                  required:
+                  - code
+                  - message
+                  - severity
+                  type: object
+                maxItems: 12
+                type: array
+              lastProbeTime:
+                maxLength: 2048
+                nullable: true
+                type: string
+              lastReconcileTime:
+                maxLength: 2048
+                nullable: true
+                type: string
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              phase:
+                enum:
+                - Pending
+                - Validating
+                - Blocked
+                - Publishing
+                - Ready
+                - Invalid
+                - Degraded
+                - null
+                maxLength: 2048
+                nullable: true
+                type: string
+              probeExpiresAt:
+                maxLength: 2048
+                nullable: true
+                type: string
+              probeRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  apiVersion:
+                    maxLength: 2048
+                    type: string
+                  executionDigest:
+                    maxLength: 71
+                    nullable: true
+                    pattern: ^sha256:[0-9a-f]{64}$
+                    type: string
+                  kind:
+                    maxLength: 2048
+                    type: string
+                  name:
+                    maxLength: 253
+                    type: string
+                  recoveryOrdinal:
+                    format: int32
+                    nullable: true
+                    type: integer
+                  uid:
+                    maxLength: 128
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                - uid
+                type: object
+              semanticDigest:
+                maxLength: 71
+                nullable: true
+                pattern: ^sha256:[0-9a-f]{64}$
+                type: string
+            type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        title: ArtifactStore
+        type: object
+        x-kubernetes-validations:
+        - rule: self.spec == oldSelf.spec
+        - rule: self.metadata.name == 'default'
+    served: true
+    storage: true
+    subresources:
+      status: {}

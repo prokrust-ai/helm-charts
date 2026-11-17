@@ -1,0 +1,47 @@
+{
+  "providers": {
+    "bigquery": {
+      "files": {
+        "bigqueryconnections.google.sources.prokrust.ai.yaml": {
+          "sha256": "8ead4421fed772a76f7d99b25879257b9ec84eaf8bd2626008339e2dc239a1d5"
+        }
+      }
+    },
+    "gcs": {
+      "files": {
+        "gcsconnections.google.sources.prokrust.ai.yaml": {
+          "sha256": "a6e60cb07d0a1e14d3a39b1ae3fac7946df8130b0808f5c5bc5e44cc894a5cc4"
+        }
+      }
+    },
+    "iceberg": {
+      "files": {
+        "icebergconnections.apache.sources.prokrust.ai.yaml": {
+          "sha256": "345b5a6d6e86e6090cd6bb0e0fd85c1299e35d85977524ed3f9837cf7ff38aea"
+        }
+      }
+    },
+    "paimon": {
+      "files": {
+        "paimonconnections.apache.sources.prokrust.ai.yaml": {
+          "sha256": "23813adf7e7fd4bd73b682b92b1dde649e17b6b90af4fff2a4db95351c4c73b3"
+        }
+      }
+    },
+    "s3": {
+      "files": {
+        "s3connections.aws.sources.prokrust.ai.yaml": {
+          "sha256": "11fa550e2d9dbe0e7cc56af76a2f2f43b1ec0e3b5104a1157a3f8249516bb2e1"
+        }
+      }
+    },
+    "synthetic": {
+      "files": {
+        "syntheticconnections.sources.prokrust.ai.yaml": {
+          "sha256": "bfc29bf8cf937adbb99acd58876deb3c84fb19f7a7e3955e4c46494d773408e8"
+        }
+      }
+    }
+  },
+  "schemaVersion": 1
+}

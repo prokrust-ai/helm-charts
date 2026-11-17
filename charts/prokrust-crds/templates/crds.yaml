@@ -1,0 +1,12 @@
+{{- range $path, $_ := .Files.Glob "files/crds/*.yaml" }}
+{{- $crd := $.Files.Get $path | fromYaml }}
+{{- $annotations := merge (dict "helm.sh/resource-policy" "keep" "argocd.argoproj.io/sync-options" "Prune=false,Delete=false,ServerSideApply=true") (default dict $crd.metadata.annotations) }}
+{{- with $.Values.crdBundleSha256 }}
+{{- $_ := set $annotations "prokrust.ai/crd-bundle-sha256" . }}
+{{- end }}
+{{- $_ := set $crd.metadata "annotations" $annotations }}
+{{- $labels := merge (dict "app.kubernetes.io/part-of" "prokrust") (default dict $crd.metadata.labels) }}
+{{- $_ := set $crd.metadata "labels" $labels }}
+---
+{{ toYaml $crd }}
+{{- end }}
