@@ -416,7 +416,7 @@ spec:
                                     - secretAccessKeyKey
                                     type: object
                                     x-kubernetes-validations:
-                                    - rule: (self.accessKeyIdKey == 'AWS_ACCESS_KEY_ID' && self.secretAccessKeyKey == 'AWS_SECRET_ACCESS_KEY' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'AWS_SESSION_TOKEN')) || (self.accessKeyIdKey == 'accessKeyId' && self.secretAccessKeyKey == 'secretAccessKey' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'sessionToken'))
+                                    - rule: (self.accessKeyIdKey == 'AWS_ACCESS_KEY_ID' && self.secretAccessKeyKey == 'AWS_SECRET_ACCESS_KEY' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'AWS_SESSION_TOKEN')) || (self.accessKeyIdKey == 'accessKeyId' && self.secretAccessKeyKey == 'secretAccessKey' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'sessionToken')) || (self.accessKeyIdKey == 'access-key-id' && self.secretAccessKeyKey == 'secret-access-key' && (!has(self.sessionTokenKey) || self.sessionTokenKey == 'session-token'))
                                   maxItems: 256
                                   type: array
                                 serviceAccounts:

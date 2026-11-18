@@ -490,6 +490,7 @@ spec:
                     - Manifest
                     - BigQuerySnapshot
                     - LakehouseSnapshot
+                    - ConnectorSnapshot
                     maxLength: 2048
                     type: string
                   dataIdentity:

@@ -147,20 +147,24 @@ spec:
                     nullable: true
                     properties:
                       connectionRef:
+                        description: A connection is always in the referring resource's workspace; namespaces are not accepted.
                         maxProperties: 1024
                         properties:
+                          apiVersion:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
                           kind:
-                            description: Namespace-local connector reference. Legacy references default to S3.
-                            enum:
-                            - S3Connection
-                            - GCSConnection
-                            - BigQueryConnection
-                            maxLength: 16384
+                            maxLength: 63
+                            minLength: 1
                             type: string
                           name:
                             maxLength: 253
+                            minLength: 1
                             type: string
                         required:
+                        - apiVersion
+                        - kind
                         - name
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
@@ -172,6 +176,29 @@ spec:
                         maxLength: 16384
                         nullable: true
                         type: string
+                      stagingConnectionRef:
+                        description: A connection is always in the referring resource's workspace; namespaces are not accepted.
+                        maxProperties: 1024
+                        nullable: true
+                        properties:
+                          apiVersion:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          kind:
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                        required:
+                        - apiVersion
+                        - kind
+                        - name
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
                       table:
                         maxLength: 16384
                         nullable: true
@@ -199,7 +226,8 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                     x-kubernetes-validations:
                     - rule: (self.type in ['S3', 'GCS'] && has(self.prefix) && self.prefix != '' && !has(self.dataset) && !has(self.table) && !has(self.writeMode)) || (self.type == 'BigQuery' && has(self.dataset) && self.dataset != '' && has(self.table) && self.table != '' && !has(self.prefix))
-                    - rule: (self.type == 'S3' && (!has(self.connectionRef.kind) || self.connectionRef.kind == 'S3Connection')) || (self.type == 'GCS' && has(self.connectionRef.kind) && self.connectionRef.kind == 'GCSConnection') || (self.type == 'BigQuery' && has(self.connectionRef.kind) && self.connectionRef.kind == 'BigQueryConnection')
+                    - rule: (self.type == 'S3' && self.connectionRef.kind == 'S3Connection' && self.connectionRef.apiVersion == 'aws.sources.prokrust.ai/v1beta1') || (self.type == 'GCS' && self.connectionRef.kind == 'GCSConnection' && self.connectionRef.apiVersion == 'google.sources.prokrust.ai/v1beta1') || (self.type == 'BigQuery' && self.connectionRef.kind == 'BigQueryConnection' && self.connectionRef.apiVersion == 'google.sources.prokrust.ai/v1beta1')
+                    - rule: '!has(self.stagingConnectionRef) || (self.type == ''BigQuery'' && self.stagingConnectionRef.kind == ''GCSConnection'' && self.stagingConnectionRef.apiVersion == ''google.sources.prokrust.ai/v1beta1'')'
                   format:
                     enum:
                     - Parquet

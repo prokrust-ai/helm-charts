@@ -456,7 +456,7 @@ spec:
                 maxProperties: 1024
                 properties:
                   connectionRef:
-                    description: A connection is always in the Table's workspace; namespaces are not accepted.
+                    description: A connection is always in the referring resource's workspace; namespaces are not accepted.
                     maxProperties: 1024
                     properties:
                       apiVersion:
