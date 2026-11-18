@@ -1,0 +1,81 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prokrust-application-controller
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+{{- if and .Values.artifactCredentials.workloadIdentity }}
+  annotations:
+    {{- if eq .Values.artifactCredentials.workloadIdentity.provider "IRSA" }}
+    eks.amazonaws.com/role-arn: {{ .Values.artifactCredentials.workloadIdentity.roleArn | quote }}
+    {{- else }}
+    prokrust.ai/aws-identity-provider: EKSPodIdentity
+    prokrust.ai/aws-role-arn: {{ .Values.artifactCredentials.workloadIdentity.roleArn | quote }}
+    {{- end }}
+{{- end }}
+automountServiceAccountToken: true
+{{- with $.Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{ toYaml . | nindent 2 }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prokrust-ballista-cluster-controller
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+{{- if and .Values.artifactCredentials.workloadIdentity }}
+  annotations:
+    {{- if eq .Values.artifactCredentials.workloadIdentity.provider "IRSA" }}
+    eks.amazonaws.com/role-arn: {{ .Values.artifactCredentials.workloadIdentity.roleArn | quote }}
+    {{- else }}
+    prokrust.ai/aws-identity-provider: EKSPodIdentity
+    prokrust.ai/aws-role-arn: {{ .Values.artifactCredentials.workloadIdentity.roleArn | quote }}
+    {{- end }}
+{{- end }}
+automountServiceAccountToken: true
+{{- with $.Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{ toYaml . | nindent 2 }}
+{{- end }}
+{{- if eq .Values.leaseBootstrap.mode "helm" }}
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: prokrust-application-controller
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec: {}
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: prokrust-ballista-cluster-controller
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec: {}
+{{- end }}

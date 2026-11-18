@@ -1,0 +1,221 @@
+{{- if .Values.connectors.enabled }}
+{{- $name := printf "%s-connector-platform" .Release.Namespace }}
+{{- $application := printf "system:serviceaccount:%s:prokrust-application-controller" .Release.Namespace }}
+{{- $ballista := printf "system:serviceaccount:%s:prokrust-ballista-cluster-controller" .Release.Namespace }}
+{{- $callerMounts := list $application $ballista | toJson }}
+{{- $callerSecrets := list "prokrust-connector-planner-tls" "prokrust-connector-executor-tls" | toJson }}
+{{- $internalPods := list "system:kube-controller-manager" "system:serviceaccount:kube-system:deployment-controller" "system:serviceaccount:kube-system:replicaset-controller" | toJson }}
+{{- $garbageCollectors := list "system:kube-controller-manager" "system:serviceaccount:kube-system:generic-garbage-collector" "system:serviceaccount:kube-system:namespace-controller" | toJson }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-roots
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps, secrets]
+        scope: Namespaced
+  variables:
+    - name: resourceName
+      expression: >-
+        has(request.name) && request.name != '' ? request.name :
+        object != null && has(object.metadata.name) ? object.metadata.name : ''
+    - name: foregroundFinalizerUpdate
+      expression: >-
+        request.userInfo.username == 'system:serviceaccount:kube-system:generic-garbage-collector' &&
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') &&
+        request.resource.group == '' && request.resource.version == 'v1' &&
+        request.resource.resource in ['configmaps', 'secrets'] && object != null && oldObject != null &&
+        object.apiVersion == 'v1' && oldObject.apiVersion == 'v1' &&
+        object.kind == oldObject.kind &&
+        ((request.resource.resource == 'configmaps' && object.kind == 'ConfigMap') ||
+          (request.resource.resource == 'secrets' && object.kind == 'Secret')) &&
+        has(oldObject.metadata.labels) &&
+        ['prokrust.ai/connector-platform-root', 'prokrust.ai/connector-installation-uid',
+          'prokrust.ai/connector-workspace-uid'].all(key,
+          key in oldObject.metadata.labels && oldObject.metadata.labels[key] != '') &&
+        (oldObject.metadata.name.startsWith('connector-') ||
+          oldObject.metadata.name in {{ $callerSecrets }} ||
+          oldObject.metadata.name == 'prokrust-connector-executor-binding') &&
+        has(oldObject.metadata.deletionTimestamp) && oldObject.metadata.deletionTimestamp != null &&
+        has(object.metadata.deletionTimestamp) &&
+        object.metadata.deletionTimestamp == oldObject.metadata.deletionTimestamp &&
+        object.metadata.uid == oldObject.metadata.uid && object.metadata.uid != '' &&
+        object.metadata.resourceVersion == oldObject.metadata.resourceVersion &&
+        object.metadata.resourceVersion != '' &&
+        object.metadata.name == oldObject.metadata.name && object.metadata.name == request.name &&
+        object.metadata.namespace == oldObject.metadata.namespace && object.metadata.namespace == request.namespace &&
+        has(oldObject.metadata.finalizers) &&
+        oldObject.metadata.finalizers.filter(f, f == 'foregroundDeletion').size() == 1 &&
+        oldObject.metadata.finalizers.all(f, f != '' &&
+          oldObject.metadata.finalizers.filter(other, other == f).size() == 1) &&
+        (has(object.metadata.finalizers) ? object.metadata.finalizers : []) ==
+          oldObject.metadata.finalizers.filter(f, f != 'foregroundDeletion') &&
+        has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+        (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels) &&
+        has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
+        (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations) &&
+        has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+        (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences) &&
+        has(object.metadata.generation) == has(oldObject.metadata.generation) &&
+        (!has(object.metadata.generation) || object.metadata.generation == oldObject.metadata.generation) &&
+        has(object.metadata.creationTimestamp) == has(oldObject.metadata.creationTimestamp) &&
+        (!has(object.metadata.creationTimestamp) || object.metadata.creationTimestamp == oldObject.metadata.creationTimestamp) &&
+        has(object.metadata.generateName) == has(oldObject.metadata.generateName) &&
+        (!has(object.metadata.generateName) || object.metadata.generateName == oldObject.metadata.generateName) &&
+        has(object.metadata.deletionGracePeriodSeconds) == has(oldObject.metadata.deletionGracePeriodSeconds) &&
+        (!has(object.metadata.deletionGracePeriodSeconds) || object.metadata.deletionGracePeriodSeconds == oldObject.metadata.deletionGracePeriodSeconds) &&
+        has(dyn(object).data) == has(dyn(oldObject).data) &&
+        (!has(dyn(object).data) || dyn(object).data == dyn(oldObject).data) &&
+        has(dyn(object).binaryData) == has(dyn(oldObject).binaryData) &&
+        (!has(dyn(object).binaryData) || dyn(object).binaryData == dyn(oldObject).binaryData) &&
+        has(dyn(object).immutable) == has(dyn(oldObject).immutable) &&
+        (!has(dyn(object).immutable) || dyn(object).immutable == dyn(oldObject).immutable) &&
+        has(dyn(object).type) == has(dyn(oldObject).type) &&
+        (!has(dyn(object).type) || dyn(object).type == dyn(oldObject).type) &&
+        has(dyn(object).stringData) == has(dyn(oldObject).stringData) &&
+        (!has(dyn(object).stringData) || dyn(object).stringData == dyn(oldObject).stringData) &&
+        !has(dyn(object).spec) && !has(dyn(oldObject).spec) &&
+        !has(dyn(object).status) && !has(dyn(oldObject).status)
+  validations:
+    - expression: >-
+        request.userInfo.username == {{ $application | toJson }} ||
+        (request.operation == 'DELETE' && request.userInfo.username in {{ $garbageCollectors }}) ||
+        variables.foregroundFinalizerUpdate ||
+        (
+          !(variables.resourceName in {{ $callerSecrets }}) &&
+          variables.resourceName != 'prokrust-connector-executor-binding' &&
+          !variables.resourceName.startsWith('connector-') &&
+          (object == null || !has(object.metadata.labels) || !('prokrust.ai/connector-platform-root' in object.metadata.labels)) &&
+          (oldObject == null || !has(oldObject.metadata.labels) || !('prokrust.ai/connector-platform-root' in oldObject.metadata.labels))
+        )
+      message: Connector platform roots are managed by the application controller
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-roots
+spec:
+  policyName: {{ $name }}-roots
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-executor
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CONNECT, UPDATE]
+        resources: [pods/exec, pods/attach, pods/ephemeralcontainers]
+        scope: Namespaced
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [deployments]
+        scope: Namespaced
+  variables:
+    - name: resourceName
+      expression: >-
+        has(request.name) && request.name != '' ? request.name :
+        object != null && has(dyn(object).metadata) && has(dyn(object).metadata.name) ? dyn(object).metadata.name : ''
+  validations:
+    - expression: >-
+        request.userInfo.username in {{ $callerMounts }} ||
+        (request.operation == 'DELETE' && request.userInfo.username in {{ $garbageCollectors }}) ||
+        (
+          request.resource.resource == 'pods' ? !variables.resourceName.startsWith('ballista-executor-') :
+          variables.resourceName != 'ballista-executor'
+        )
+      message: The Ballista executor may only be changed or debugged by trusted platform controllers
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-executor
+spec:
+  policyName: {{ $name }}-executor
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-workloads
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods, pods/ephemeralcontainers, replicationcontrollers]
+        scope: Namespaced
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments, replicasets, daemonsets, statefulsets]
+        scope: Namespaced
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs, cronjobs]
+        scope: Namespaced
+  variables:
+    - name: podSpec
+      expression: >-
+        request.resource.resource == 'pods' ? dyn(dyn(object).spec) :
+        request.resource.resource == 'cronjobs' ? dyn(dyn(object).spec.jobTemplate.spec.template.spec) :
+        dyn(dyn(object).spec.template.spec)
+  validations:
+    - expression: >-
+        request.userInfo.username in {{ $callerMounts }} || request.userInfo.username in {{ $internalPods }} ||
+        (
+          (!has(variables.podSpec.volumes) || !variables.podSpec.volumes.exists(v,
+            (has(v.secret) && has(v.secret.secretName) && v.secret.secretName in {{ $callerSecrets }}) ||
+            (has(v.configMap) && has(v.configMap.name) && v.configMap.name == 'prokrust-connector-executor-binding') ||
+            (has(v.projected) && v.projected.sources.exists(source,
+              (has(source.secret) && has(source.secret.name) && source.secret.name in {{ $callerSecrets }}) ||
+              (has(source.configMap) && has(source.configMap.name) && source.configMap.name == 'prokrust-connector-executor-binding')))
+          )) &&
+          !(
+            variables.podSpec.containers +
+            (has(variables.podSpec.initContainers) ? variables.podSpec.initContainers : []) +
+            (has(variables.podSpec.ephemeralContainers) ? variables.podSpec.ephemeralContainers : [])
+          ).exists(container,
+            (has(container.envFrom) && container.envFrom.exists(e,
+              (has(e.secretRef) && has(e.secretRef.name) && e.secretRef.name in {{ $callerSecrets }}) ||
+              (has(e.configMapRef) && has(e.configMapRef.name) && e.configMapRef.name == 'prokrust-connector-executor-binding'))) ||
+            (has(container.env) && container.env.exists(e,
+              has(e.valueFrom) && (
+                (has(e.valueFrom.secretKeyRef) && has(e.valueFrom.secretKeyRef.name) && e.valueFrom.secretKeyRef.name in {{ $callerSecrets }}) ||
+                (has(e.valueFrom.configMapKeyRef) && has(e.valueFrom.configMapKeyRef.name) && e.valueFrom.configMapKeyRef.name == 'prokrust-connector-executor-binding')
+              )))
+          )
+        )
+      message: Connector caller credentials may only be mounted by trusted platform workloads
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-workloads
+spec:
+  policyName: {{ $name }}-workloads
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+{{- end }}

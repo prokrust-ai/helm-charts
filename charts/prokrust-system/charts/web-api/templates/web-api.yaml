@@ -1,0 +1,330 @@
+{{- $oidc := .Values.global.oidc | default dict -}}
+{{- if and $oidc.enabled (not .Values.webApi.browserOrigin) -}}
+{{- fail "global.oidc.enabled requires webApi.browserOrigin set to the public HTTPS origin" -}}
+{{- end -}}
+{{- if and (.Values.webApi.browserOrigin | default "") (not (regexMatch "^https://[A-Za-z0-9][A-Za-z0-9.:-]*$" .Values.webApi.browserOrigin)) }}
+{{- fail "webApi.browserOrigin must be an exact HTTPS origin without a path or trailing slash" }}
+{{- end }}
+{{- if and (not $oidc.enabled) (.Values.webApi.browserOrigin | default "") (ne (int .Values.webApi.replicas) 1) }}
+{{- fail "webApi.browserOrigin uses in-memory browser sessions and requires exactly one replica" }}
+{{- end }}
+{{- $placement := include "web-api.workloadPlacement" . -}}
+{{- $awsIdentity := .Values.webApi.artifactWorkloadIdentity -}}
+{{- if $awsIdentity -}}
+{{- if not (has $awsIdentity.provider (list "IRSA" "EKSPodIdentity")) -}}{{ fail "webApi.artifactWorkloadIdentity.provider must select IRSA or EKSPodIdentity" }}{{- end -}}
+{{- if not (regexMatch "^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$" $awsIdentity.roleArn) -}}{{ fail "webApi.artifactWorkloadIdentity requires an exact IAM role ARN" }}{{- end -}}
+{{- if .Values.webApi.artifactFederation -}}{{ fail "Choose only one API artifact federation provider" }}{{- end -}}
+{{- end -}}
+{{- if .Values.webApi.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prokrust-web-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "web-api.labels" . | nindent 4 }}
+{{- with $awsIdentity }}
+  annotations:
+    {{- if eq .provider "IRSA" }}
+    eks.amazonaws.com/role-arn: {{ .roleArn | quote }}
+    {{- else }}
+    prokrust.ai/aws-identity-provider: EKSPodIdentity
+    prokrust.ai/aws-role-arn: {{ .roleArn | quote }}
+    {{- end }}
+{{- end }}
+imagePullSecrets:
+  {{- toYaml .Values.global.imagePullSecrets | nindent 2 }}
+automountServiceAccountToken: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prokrust-web-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "web-api.labels" . | nindent 4 }}
+    app.kubernetes.io/name: prokrust-web-api
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.webApi.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: prokrust-web-api}
+  template:
+    metadata:
+      {{- if $oidc.enabled }}
+      annotations:
+        prokrust.ai/auth-revision: {{ int64 $oidc.revision | quote }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: prokrust-web-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: prokrust
+        {{- if $awsIdentity }}
+        prokrust.ai/aws-auth: 'true'
+        {{- if eq $awsIdentity.provider "EKSPodIdentity" }}
+        prokrust.ai/aws-pod-identity: 'true'
+        {{- end }}
+        {{- end }}
+    spec:
+      serviceAccountName: prokrust-web-api
+      automountServiceAccountToken: true
+      {{- if $placement }}
+      {{- $placement | nindent 6 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: web-api
+          image: {{ include "web-api.image" .Values.images.webApi }}
+          imagePullPolicy: {{ .Values.images.webApi.pullPolicy }}
+          env:
+            - name: PROKRUST_WEB_API_BIND
+              value: {{ printf "%s:8080" (include "web-api.bindHost" .) | quote }}
+            - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
+              value: {{ .Values.global.workloadPlacementProfile | default "arm64" | quote }}
+            {{- if .Values.webApi.browserOrigin }}
+            - name: PROKRUST_UI_ORIGIN
+              value: {{ .Values.webApi.browserOrigin | quote }}
+            {{- end }}
+            {{- if $oidc.enabled }}
+            - name: PROKRUST_AUTH_CONFIG
+              value: /etc/prokrust/auth.toml
+            {{- end }}
+            {{- if .Values.webApi.argoUiBaseUrl }}
+            - name: PROKRUST_ARGO_UI_BASE_URL
+              value: {{ .Values.webApi.argoUiBaseUrl | quote }}
+            {{- end }}
+            {{- if .Values.webApi.connectorRegistryConfigMap }}
+            - name: PROKRUST_CONNECTOR_CONFIG
+              value: /var/run/prokrust-connectors/registry.json
+            {{- end }}
+            - name: PROKRUST_SYSTEM_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            {{- if $awsIdentity }}
+            - name: PROKRUST_WEB_API_SERVICE_ACCOUNT_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: PROKRUST_WEB_API_SERVICE_ACCOUNT_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.serviceAccountName}}
+            - name: RP_ARTIFACT_AUTH_MODE
+              value: workload-identity
+            - name: RP_ARTIFACT_AWS_IDENTITY_PROVIDER
+              value: {{ ternary "irsa" "eks-pod-identity" (eq $awsIdentity.provider "IRSA") | quote }}
+            - name: RP_ARTIFACT_AWS_ROLE_ARN
+              value: {{ $awsIdentity.roleArn | quote }}
+            {{- end }}
+            {{- if .Values.webApi.artifactFederation }}
+            - name: RP_ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS_FILE
+              value: /var/run/prokrust/gcp/config.json
+            {{- end }}
+          {{- if or $oidc.enabled .Values.webApi.artifactFederation .Values.webApi.connectorRegistryConfigMap }}
+          volumeMounts:
+            {{- if .Values.webApi.connectorRegistryConfigMap }}
+            - {name: connector-registry, mountPath: /var/run/prokrust-connectors, readOnly: true}
+            {{- end }}
+            {{- if $oidc.enabled }}
+            - {name: oidc-config, mountPath: /etc/prokrust, readOnly: true}
+            - {name: oidc-secrets, mountPath: /var/run/prokrust/browser, readOnly: true}
+            {{- end }}
+            {{- if .Values.webApi.artifactFederation }}
+            - {name: artifact-gcp-auth, mountPath: /var/run/prokrust/gcp, readOnly: true}
+            {{- end }}
+          {{- end }}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 10}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 128Mi}
+            limits: {cpu: "1", memory: 512Mi, ephemeral-storage: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+      {{- if or $oidc.enabled .Values.webApi.artifactFederation .Values.webApi.connectorRegistryConfigMap }}
+      volumes:
+        {{- if .Values.webApi.connectorRegistryConfigMap }}
+        - name: connector-registry
+          configMap:
+            name: {{ .Values.webApi.connectorRegistryConfigMap | quote }}
+            {{- with .Values.webApi.connectorRegistryItems }}
+            items: {{ . | toJson }}
+            {{- end }}
+        {{- end }}
+        {{- if $oidc.enabled }}
+        - name: oidc-config
+          configMap:
+            name: {{ printf "prokrust-oidc-%d" (int64 $oidc.revision) }}
+        - name: oidc-secrets
+          projected:
+            defaultMode: 0440
+            sources:
+              - secret:
+                  name: {{ required "global.oidc.sessionSecret is required" $oidc.sessionSecret | quote }}
+                  items:
+                    - {key: redis-url, path: redis-url}
+              {{- range $id, $provider := $oidc.providers }}
+              {{- if not (regexMatch "^[A-Za-z0-9_-]{1,63}$" $id) }}
+              {{- fail "global.oidc.providers keys must be valid provider IDs" }}
+              {{- end }}
+              {{- with $provider.clientSecret }}
+              - secret:
+                  name: {{ required "provider clientSecret.name is required" .name | quote }}
+                  items:
+                    - key: {{ required "provider clientSecret.key is required" .key | quote }}
+                      path: {{ printf "%s/client-secret" $id | quote }}
+              {{- end }}
+              {{- end }}
+        {{- end }}
+        {{- if .Values.webApi.artifactFederation }}
+        - name: artifact-gcp-auth
+          projected:
+            defaultMode: 0440
+            sources:
+              - configMap:
+                  name: {{ .Values.webApi.artifactFederation.configMapName }}
+                  items:
+                    - {key: {{ .Values.webApi.artifactFederation.configKey }}, path: config.json}
+              - serviceAccountToken:
+                  path: token
+                  audience: {{ .Values.webApi.artifactFederation.audience | quote }}
+                  expirationSeconds: 3600
+        {{- end }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-web-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "web-api.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  {{- include "web-api.serviceFamily" . | nindent 2 }}
+  selector: {app.kubernetes.io/name: prokrust-web-api}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-web-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "web-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: prokrust-web-api}
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {prokrust.ai/api-client: "true"}
+      ports:
+        - {protocol: TCP, port: 8080}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml .Values.global.networkPolicy.dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml .Values.global.networkPolicy.dns.podSelector | nindent 14 }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- range .Values.global.networkPolicy.apiServerEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr }}}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+    {{- $gcp := .Values.global.networkPolicy.gcpAuth }}
+    {{- if $gcp.enabled }}
+    {{- range $gcp.metadataEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        {{- range .ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+    {{- if $gcp.googleApiCIDRs }}
+    - to:
+        {{- range $gcp.googleApiCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: 443}
+    {{- end }}
+    {{- end }}
+    {{- $artifact := .Values.global.networkPolicy.artifactStore }}
+    {{- if or $artifact.cidrs $artifact.podSelector }}
+    - to:
+        {{- range $artifact.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $artifact.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+    {{- end }}
+    {{- $source := .Values.global.networkPolicy.sourceStore }}
+    {{- if or $source.cidrs $source.podSelector }}
+    - to:
+        {{- range $source.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $source.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $source.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $source.port }}}
+    {{- end }}
+{{- end }}
+
+{{- $aws := .Values.global.networkPolicy.awsAuth | default dict -}}
+{{- if and .Values.webApi.enabled $awsIdentity $aws.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-web-api-aws-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "web-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: prokrust-web-api, prokrust.ai/aws-auth: 'true'}
+  policyTypes: [Egress]
+  egress:
+    {{- $hosts := $aws.stsCIDRs | default list }}
+    {{- $localAws := .Values.awsAuth | default dict }}
+    {{- $networks := $localAws.stsNetworkCIDRs | default list }}
+    {{- range $hosts }}
+    {{- if not (regexMatch "^([0-9.]+/32|[0-9A-Fa-f:]+/128)$" .) }}{{ fail "AWS STS CIDRs must select exact /32 or /128 hosts" }}{{- end }}
+    {{- end }}
+    {{- range $networks }}
+    {{- if not (regexMatch "^([0-9.]+/(2[3-9]|3[0-2])|[0-9A-Fa-f:]+/(5[6-9]|[6-9][0-9]|1[01][0-9]|12[0-8]))$" .) }}{{ fail "awsAuth.stsNetworkCIDRs must select IPv4 /23 through /32 or IPv6 /56 through /128" }}{{- end }}
+    {{- end }}
+    {{- $destinations := concat $hosts $networks | uniq }}
+    {{- if gt (len $destinations) 8 }}{{ fail "AWS STS host and network union must contain at most eight destinations" }}{{- end }}
+    {{- range $destinations }}
+    {{- if regexMatch "(?i)^(0\\.|127\\.|169\\.254\\.|fd00:0?ec2:|fe[89ab][0-9a-f]:|ff[0-9a-f]{2}:|(22[4-9]|2[3-4][0-9]|25[0-5])\\.|((0{1,4}:){7}0{0,3}[01]|(0{1,4}(:0{1,4})*)?::(0{1,4}:)*0{0,3}[01]?)/)" . }}{{ fail "AWS STS CIDRs cannot select local or metadata addresses" }}{{- end }}
+    {{- if regexMatch "(?i)^((0{1,4}(:0{1,4})*)?::(0{1,4}:)*ffff:|(0{1,4}:){5}ffff:)" . }}{{ fail "AWS STS CIDRs cannot select IPv4-mapped IPv6 addresses" }}{{- end }}
+    {{- if or (and (eq (include "web-api.networkFamily" $) "IPv6") (not (contains ":" .))) (and (eq (include "web-api.networkFamily" $) "IPv4") (contains ":" .)) }}{{ fail "AWS STS CIDRs must match global.networkFamily" }}{{- end }}
+    - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+    {{- if and $aws.podIdentityAgentEnabled (eq $awsIdentity.provider "EKSPodIdentity") }}
+    - to:
+      - ipBlock: {cidr: "169.254.170.23/32"}
+      - ipBlock: {cidr: "fd00:ec2::23/128"}
+      ports: [{protocol: TCP, port: 80}]
+    {{- end }}
+{{- end }}

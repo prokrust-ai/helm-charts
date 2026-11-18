@@ -1,0 +1,92 @@
+{{- if .Values.connectors.enabled }}
+{{- $namespace := .Release.Namespace }}
+{{- if .Values.connectors.bootstrapCA }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: prokrust-connector-ca-bootstrap
+  namespace: {{ $namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prokrust-connector-ca
+  namespace: {{ $namespace }}
+spec:
+  isCA: true
+  commonName: {{ printf "%s Prokrust Connector CA" $namespace | quote }}
+  secretName: prokrust-connector-ca
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  usages: [cert sign, crl sign]
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: prokrust-connector-ca-bootstrap
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: prokrust-connector-ca
+  namespace: {{ $namespace }}
+spec:
+  ca:
+    secretName: prokrust-connector-ca
+---
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-connector-issuer
+  namespace: {{ $namespace }}
+rules:
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, create, update, delete]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, delete]
+  {{- with .Values.connectors.trustBundleConfigMap }}
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ . | quote }}]
+    verbs: [get]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-connector-issuer
+  namespace: {{ $namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-connector-issuer}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-application-controller, namespace: {{ $namespace }}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-connector-client-egress
+  namespace: {{ $namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [prokrust-application-controller, prokrust-web-api]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {prokrust.ai/installation: {{ $namespace | quote }}}
+          podSelector:
+            matchExpressions:
+              - {key: prokrust.ai/connector-uid, operator: Exists}
+      ports:
+        - {protocol: TCP, port: 8443}
+{{- end }}

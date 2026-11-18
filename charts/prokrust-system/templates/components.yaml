@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-component-versions
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+data:
+  compositionVersion: {{ .Chart.Version | quote }}
+{{- range $name, $component := .Values.components }}
+  {{ $name }}.version: {{ $component.version | quote }}
+{{- if $component.chartVersion }}
+  {{ $name }}.chartVersion: {{ $component.chartVersion | quote }}
+{{- end }}
+{{- end }}

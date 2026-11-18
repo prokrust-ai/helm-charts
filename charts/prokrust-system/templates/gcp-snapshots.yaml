@@ -1,0 +1,135 @@
+{{- $application := printf "system:serviceaccount:%s:prokrust-application-controller" .Release.Namespace }}
+{{- $ballista := printf "system:serviceaccount:%s:prokrust-ballista-cluster-controller" .Release.Namespace }}
+{{- $directAccounts := list "prokrust-ballista-scheduler" "prokrust-ballista-executor" "prokrust-kserve-runtime" | toJson }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-gcp-snapshots" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+  matchConditions:
+    - name: frozen-cloud-config
+      expression: "(object != null && has(object.metadata.name) && object.metadata.name.startsWith('prokrust-gcp-config-')) || (oldObject != null && has(oldObject.metadata.name) && oldObject.metadata.name.startsWith('prokrust-gcp-config-'))"
+  validations:
+    - expression: {{ printf "request.operation == 'CREATE' ? (has(object.metadata.ownerReferences) && size(object.metadata.ownerReferences) == 1 && ((object.metadata.ownerReferences[0].kind == 'InferenceEndpoint' && request.userInfo.username == 'system:serviceaccount:%s:prokrust-application-controller') || (object.metadata.ownerReferences[0].kind == 'BallistaCluster' && request.userInfo.username == 'system:serviceaccount:%s:prokrust-ballista-cluster-controller'))) : request.operation == 'DELETE' && request.userInfo.username in ['system:serviceaccount:kube-system:generic-garbage-collector', 'system:kube-controller-manager']" .Release.Namespace .Release.Namespace | quote }}
+      message: "Frozen GCP snapshots are created only by Operator and deleted only by owner garbage collection; updates are forbidden."
+    - expression: "request.operation == 'DELETE' || (has(object.immutable) && object.immutable && has(object.data) && size(object.data) == 2 && 'config.json' in object.data && 'identity.json' in object.data && size(object.data['config.json']) <= 524288 && size(object.data['identity.json']) <= 16384 && has(object.metadata.ownerReferences) && size(object.metadata.ownerReferences) == 1 && object.metadata.ownerReferences[0].kind in ['BallistaCluster', 'InferenceEndpoint'])"
+      message: "Frozen GCP snapshots must be bounded immutable owner-bound configuration records."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-gcp-snapshots" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-gcp-snapshots" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-gcp-deployments" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments]
+  variables:
+    {{- range $frame := list "object" "oldObject" }}
+    - name: {{ $frame }}Protected
+      expression: >-
+        {{- if eq $frame "oldObject" }}
+        request.operation == 'UPDATE' &&
+        {{- end }}
+        ((has({{ $frame }}.spec.template.spec.serviceAccountName) && {{ $frame }}.spec.template.spec.serviceAccountName in {{ $directAccounts }}) ||
+         (has({{ $frame }}.spec.template.spec.serviceAccount) && {{ $frame }}.spec.template.spec.serviceAccount in {{ $directAccounts }}) ||
+         (has({{ $frame }}.spec.template.spec.volumes) && {{ $frame }}.spec.template.spec.volumes.exists(v,
+           (has(v.configMap) && v.configMap.name.startsWith('prokrust-gcp-config-')) ||
+           (has(v.projected) && v.projected.sources.exists(s, has(s.configMap) && s.configMap.name.startsWith('prokrust-gcp-config-'))))))
+    {{- end }}
+  validations:
+    - expression: >-
+        (!variables.objectProtected && !variables.oldObjectProtected) ||
+        (request.operation == 'UPDATE' &&
+          request.userInfo.username in ['system:kube-controller-manager', 'system:serviceaccount:kube-system:deployment-controller', 'system:serviceaccount:kube-system:generic-garbage-collector'] &&
+          object.spec.template == oldObject.spec.template && object.metadata.ownerReferences == oldObject.metadata.ownerReferences) ||
+        (has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(r, r.controller && (
+          (r.apiVersion == 'platform.prokrust.ai/v1beta1' && r.kind == 'BallistaCluster' &&
+            request.userInfo.username == {{ $ballista | toJson }}) ||
+          (r.apiVersion == 'serving.kserve.io/v1beta1' && r.kind == 'InferenceService' &&
+            request.userInfo.username == {{ .Values.workflowIntegrity.kserveControllerUsername | toJson }}))))
+      message: "Deployments using a reserved direct runtime identity require their trusted Ballista or KServe controller."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-gcp-deployments" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-gcp-deployments" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-reserved-serving" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [serving.kserve.io]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [inferenceservices]
+        scope: Namespaced
+  matchConditions:
+    - name: reserved-serving-account
+      expression: >-
+        false
+        {{- range $frame := list "object" "oldObject" }}
+        {{- range $component := list "predictor" "transformer" "explainer" }}
+        {{- $spec := printf "dyn(%s).spec.%s" $frame $component }}
+        || ({{ if eq $frame "oldObject" }}request.operation == 'UPDATE' && {{ end }}has({{ $spec }}) &&
+          ((has({{ $spec }}.serviceAccountName) && {{ $spec }}.serviceAccountName == 'prokrust-kserve-runtime') ||
+           (has({{ $spec }}.serviceAccount) && {{ $spec }}.serviceAccount == 'prokrust-kserve-runtime')))
+        {{- end }}
+        {{- end }}
+  validations:
+    - expression: >-
+        (request.operation == 'UPDATE' &&
+          request.userInfo.username == {{ .Values.workflowIntegrity.kserveControllerUsername | toJson }} &&
+          dyn(object).spec == dyn(oldObject).spec && object.metadata.ownerReferences == oldObject.metadata.ownerReferences) ||
+        (request.userInfo.username == {{ $application | toJson }} &&
+          has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(r,
+            r.apiVersion == 'ml.prokrust.ai/v1beta1' && r.kind == 'InferenceEndpoint' && r.controller))
+      message: "InferenceServices using the reserved KServe account require the application controller."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-reserved-serving" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-reserved-serving" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}

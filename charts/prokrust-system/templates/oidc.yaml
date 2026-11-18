@@ -1,0 +1,250 @@
+{{- $auth := .Values.global.oidc -}}
+{{- if $auth.enabled }}
+{{- if not (dig "webApi" "enabled" false (index .Values "web-api")) -}}
+{{- fail "global.oidc.enabled requires web-api.webApi.enabled" -}}
+{{- end -}}
+{{- $secret := required "global.oidc.sessionSecret is required" $auth.sessionSecret -}}
+{{- $image := required "global.oidc.redis.image requires a digest-pinned Redis 7+ image" $auth.redis.image -}}
+{{- if not (regexMatch "@sha256:[a-f0-9]{64}$" $image) -}}
+{{- fail "global.oidc.redis.image requires a digest-pinned Redis 7+ image" -}}
+{{- end -}}
+{{- $revision := int64 $auth.revision -}}
+{{- if or (lt $revision 1) (gt $revision 9007199254740991) (not $auth.providers) -}}
+{{- fail "OIDC requires a positive global.oidc.revision and at least one configured provider" -}}
+{{- end -}}
+{{- if not $auth.providerEgressCIDRs -}}
+{{- fail "OIDC requires explicit HTTPS provider destinations in global.oidc.providerEgressCIDRs" -}}
+{{- end -}}
+{{- range $auth.providerEgressCIDRs -}}
+{{- if hasSuffix "/0" . }}{{ fail "OIDC provider egress must not allow the entire network family" }}{{ end -}}
+{{- end -}}
+{{- $targets := dict -}}
+{{- $namespaces := list -}}
+{{- range $target := $auth.targets -}}
+{{- $ns := $target.namespace -}}
+{{- $account := $target.serviceAccount -}}
+{{- $pair := printf "%s/%s" $ns $account -}}
+{{- if or (eq $ns $.Release.Namespace) (hasKey $targets $pair) -}}
+{{- fail "OIDC targets must be unique and outside the administrative namespace" -}}
+{{- end -}}
+{{- include "operator.humanAccount" $account -}}
+{{- $_ := set $targets $pair $target -}}
+{{- $namespaces = append $namespaces $ns -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "prokrust-oidc-%d" $revision }}
+  namespace: {{ .Release.Namespace }}
+immutable: true
+data:
+  auth.toml: |
+    revision = {{ $revision }}
+    installationNamespace = {{ .Release.Namespace | toJson }}
+    redisUrlFile = "/var/run/prokrust/browser/redis-url"
+    {{- if $auth.allowArtifactHostInspection }}
+    artifactHost = { namespace = {{ .Release.Namespace | toJson }}, serviceAccount = "prokrust-web-api" }
+    {{- end }}
+    {{- range $auth.targets }}
+    [[targets]]
+    namespace = {{ .namespace | toJson }}
+    serviceAccount = {{ .serviceAccount | toJson }}
+    installationReports = {{ default false .installationReports }}
+    {{- end }}
+    {{- range $id, $provider := $auth.providers }}
+    {{- if not (regexMatch "^[A-Za-z0-9_-]{1,63}$" $id) }}{{ fail "global.oidc.providers keys must be valid provider IDs" }}{{ end }}
+    [oidc.providers.{{ $id }}]
+    issuer = {{ required "OIDC provider issuer is required" $provider.issuer | toJson }}
+    clientId = {{ required "OIDC provider clientId is required" $provider.clientId | toJson }}
+    scopes = {{ default (list "openid" "email" "profile") $provider.scopes | toJson }}
+    claims = {{ default (list) $provider.claims | toJson }}
+    {{- with $provider.groupsClaim }}
+    groupsClaim = {{ . | toJson }}
+    {{- end }}
+    {{- with $provider.clientSecret }}
+    clientSecretFile = "/var/run/prokrust/browser/{{ $id }}/client-secret"
+    {{- end }}
+    {{- end }}
+{{- if $targets }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-oidc-target-namespaces
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: {{ $namespaces | uniq | sortAlpha | toJson }}
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-oidc-target-namespaces
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Namespace }}-prokrust-oidc-target-namespaces}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ .Release.Namespace }}}
+{{- end }}
+{{- range $pair, $target := $targets }}
+{{- if or $target.installationReports $auth.allowArtifactHostInspection }}
+{{- $grant := printf "prokrust-oidc-reader-%s" (sha256sum $pair | trunc 16) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $grant }}
+  namespace: {{ $.Release.Namespace }}
+rules:
+  {{- if $target.installationReports }}
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [prokrust-license-installation-usage]
+    verbs: [get]
+  {{- end }}
+  {{- if $auth.allowArtifactHostInspection }}
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [prokrust-web-api]
+    verbs: [get]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $grant }}
+  namespace: {{ $.Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $grant }}}
+subjects:
+  - {kind: ServiceAccount, name: {{ $target.serviceAccount }}, namespace: {{ $target.namespace }}}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-session-redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- include "operator.serviceFamily" . | nindent 2 }}
+  selector: {app.kubernetes.io/name: prokrust-session-redis}
+  ports: [{name: redis, port: 6379, targetPort: redis}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-session-redis-headless
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  {{- include "operator.serviceFamily" . | nindent 2 }}
+  selector: {app.kubernetes.io/name: prokrust-session-redis}
+  ports: [{name: redis, port: 6379, targetPort: redis}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prokrust-session-redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: prokrust-session-redis-headless
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: prokrust-session-redis}
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: prokrust-session-redis}
+      annotations: {prokrust.ai/auth-revision: {{ $revision | quote }}}
+    spec:
+      {{- include "operator.podPlacement" . | nindent 6 }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: redis
+          image: {{ $image | quote }}
+          command: [redis-server]
+          args:
+            - --bind
+            - {{ ternary "::" "0.0.0.0" (eq (include "operator.networkFamily" .) "IPv6") | quote }}
+            - --protected-mode
+            - "yes"
+            - --aclfile
+            - /run/prokrust-redis/users.acl
+            - --dir
+            - /data
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - always
+            - --maxmemory
+            - 192mb
+            - --maxmemory-policy
+            - noeviction
+          ports: [{name: redis, containerPort: 6379}]
+          readinessProbe: {tcpSocket: {port: redis}, periodSeconds: 5}
+          livenessProbe: {tcpSocket: {port: redis}, periodSeconds: 10}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: auth, mountPath: /run/prokrust-redis, readOnly: true}
+      volumes:
+        - name: auth
+          secret:
+            secretName: {{ $secret | quote }}
+            defaultMode: 0440
+            items: [{key: users.acl, path: users.acl}]
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $auth.redis.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests: {storage: {{ $auth.redis.storage | quote }}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-session-redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-session-redis}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-web-api}}
+      ports: [{protocol: TCP, port: 6379}]
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-web-api-oidc-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-web-api}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-session-redis}}
+      ports: [{protocol: TCP, port: 6379}]
+    - to:
+        {{- range $auth.providerEgressCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+{{- end }}

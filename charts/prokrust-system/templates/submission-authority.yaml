@@ -1,0 +1,42 @@
+# Capture the authenticated requester before deferred dependencies resolve.
+# The matching validating webhook protects this server-owned context on every
+# write, including status writes. Admission itself creates no external records.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ printf "%s-prokrust-submission-authority" .Release.Namespace }}
+  {{- if .Values.licensing.webhook.certManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/prokrust-license-webhook" .Release.Namespace | quote }}
+  {{- end }}
+webhooks:
+  - name: authority.submission.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    reinvocationPolicy: Never
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /mutate-submission
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    rules:
+      - apiGroups: [data.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [snapshotpreparations, snapshotbuilds, tablesnapshots, graphsnapshots]
+        scope: Namespaced
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [trainingruns, trainingstudies, predictionruns, inferenceendpoints]
+        scope: Namespaced

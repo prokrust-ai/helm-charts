@@ -1,0 +1,256 @@
+{{- $protectedAccounts := list "prokrust-ballista-scheduler" "prokrust-ballista-executor" "prokrust-kserve-runtime" "prokrust-artifact-store-probe" "prokrust-connection-probe" "prokrust-table-staging" "prokrust-table-materializer" "prokrust-graph-materializer" "prokrust-training-materializer" "prokrust-prediction-materializer" "prokrust-artifact-writer" "prokrust-trainer" "prokrust-batch-predictor" | toJson }}
+# Full-spec validation is read-only and uses the immutable owner-bound execution
+# anchor, never the digest or plan name supplied by a Workflow as authority.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ printf "%s-prokrust-workflow-integrity" .Release.Namespace }}
+  {{- if .Values.licensing.webhook.certManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/prokrust-license-webhook" .Release.Namespace | quote }}
+  {{- end }}
+webhooks:
+  - name: lifecycle.snapshot.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-snapshot
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    rules:
+      - apiGroups: [platform.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [performancecaptures, performancecaptures/status]
+        scope: Namespaced
+      - apiGroups: [data.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [tableprofiles, tableprofiles/status, snapshotpreparations, snapshotpreparations/status, snapshotbuilds, snapshotbuilds/status, tablesnapshots, tablesnapshots/status, graphsnapshots, graphsnapshots/status]
+        scope: Namespaced
+      - apiGroups: [platform.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [DELETE]
+        resources: [performancecaptures]
+        scope: Namespaced
+      - apiGroups: [data.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [DELETE]
+        resources: [tableprofiles, snapshotbuilds]
+        scope: Namespaced
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [trainingstudies, trainingstudies/status]
+        scope: Namespaced
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [trainingruns, trainingruns/status, predictionruns, predictionruns/status, inferenceendpoints, inferenceendpoints/status]
+        scope: Namespaced
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [DELETE]
+        resources: [trainingruns]
+        scope: Namespaced
+  - name: program.workflow.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-workflow
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    rules:
+      - apiGroups: [argoproj.io]
+        apiVersions: [v1alpha1]
+        operations: [CREATE, UPDATE]
+        resources: [workflows, workflows/status]
+        scope: Namespaced
+  - name: workload.workflow.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-workflow-pod
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    # A reserved identity must match even on an ownerless workload. Ordinary
+    # controller Pods and ReplicaSets must not depend on their own webhook.
+    matchConditions:
+      - name: protected-cloud-or-managed-workload
+        expression: >-
+          false
+          {{- range $object := list "object" "oldObject" }}
+          || ({{ if eq $object "oldObject" }}request.operation == 'UPDATE' && {{ end }}(
+            (has({{ $object }}.metadata.ownerReferences) && {{ $object }}.metadata.ownerReferences.exists(r,
+              (r.apiVersion == 'argoproj.io/v1alpha1' && r.kind == 'Workflow') ||
+              (r.apiVersion == 'batch/v1' && r.kind == 'Job'))) ||
+            (has({{ $object }}.metadata.labels) && 'prokrust.ai/component' in {{ $object }}.metadata.labels &&
+              {{ $object }}.metadata.labels['prokrust.ai/component'] == 'source-inspection')))
+          {{- range $kind := list "Pod" "ReplicaSet" "Job" }}
+          {{- $spec := printf "%s.spec" $object }}
+          {{- if ne $kind "Pod" }}{{- $spec = printf "%s.spec.template.spec" $object }}{{- end }}
+          || (request.kind.kind == '{{ $kind }}' && {{ if eq $object "oldObject" }}request.operation == 'UPDATE' && {{ end }}has({{ $object }}.spec) &&
+            {{- if ne $kind "Pod" }}
+            has({{ $object }}.spec.template) && has({{ $spec }}) &&
+            {{- end }}
+            ((has({{ $spec }}.serviceAccountName) && {{ $spec }}.serviceAccountName in {{ $protectedAccounts }}) ||
+             (has({{ $spec }}.serviceAccount) && {{ $spec }}.serviceAccount in {{ $protectedAccounts }})
+            {{- if ne $kind "Job" }}
+             || (has({{ $spec }}.volumes) && {{ $spec }}.volumes.exists(v,
+                (has(v.configMap) && has(v.configMap.name) && v.configMap.name.startsWith('prokrust-gcp-config-')) ||
+                (has(v.projected) && has(v.projected.sources) && v.projected.sources.exists(s,
+                  has(s.configMap) && has(s.configMap.name) && s.configMap.name.startsWith('prokrust-gcp-config-')))))
+            {{- end }}
+            ))
+          {{- end }}
+          {{- end }}
+    rules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods, pods/resize, pods/ephemeralcontainers]
+        scope: Namespaced
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs]
+        scope: Namespaced
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [replicasets]
+        scope: Namespaced
+  - name: anchor.workflow.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-workflow-plan
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    matchConditions:
+      - name: protected-execution-anchor
+        expression: "(object != null && has(object.metadata.name) && object.metadata.name.startsWith('prokrust-workflow-plan-')) || (oldObject != null && has(oldObject.metadata.name) && oldObject.metadata.name.startsWith('prokrust-workflow-plan-'))"
+    rules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+        scope: Namespaced
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-workflow-anchor" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+  matchConditions:
+    - name: protected-name
+      expression: "(object != null && has(object.metadata.name) && object.metadata.name.startsWith('prokrust-workflow-plan-')) || (oldObject != null && has(oldObject.metadata.name) && oldObject.metadata.name.startsWith('prokrust-workflow-plan-'))"
+  variables:
+    - name: isGarbageCollector
+      expression: "request.userInfo.username in ['system:serviceaccount:kube-system:generic-garbage-collector', 'system:kube-controller-manager']"
+    - name: foregroundFinalizerUpdate
+      expression: >-
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') && oldObject != null &&
+        has(oldObject.metadata.deletionTimestamp) &&
+        has(object.metadata.deletionTimestamp) &&
+        object.metadata.deletionTimestamp == oldObject.metadata.deletionTimestamp &&
+        object.metadata.uid == oldObject.metadata.uid && object.metadata.uid != '' &&
+        object.metadata.resourceVersion == oldObject.metadata.resourceVersion &&
+        object.metadata.resourceVersion != '' &&
+        object.metadata.name == oldObject.metadata.name &&
+        object.metadata.namespace == oldObject.metadata.namespace &&
+        has(oldObject.metadata.finalizers) &&
+        oldObject.metadata.finalizers.filter(f, f == 'foregroundDeletion').size() == 1 &&
+        oldObject.metadata.finalizers.all(f, f != '' &&
+          oldObject.metadata.finalizers.filter(other, other == f).size() == 1) &&
+        (has(object.metadata.finalizers) ? object.metadata.finalizers : []) ==
+          oldObject.metadata.finalizers.filter(f, f != 'foregroundDeletion') &&
+        has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+        (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels) &&
+        has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
+        (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations) &&
+        has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+        (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences) &&
+        has(object.metadata.generation) == has(oldObject.metadata.generation) &&
+        (!has(object.metadata.generation) || object.metadata.generation == oldObject.metadata.generation) &&
+        has(object.metadata.creationTimestamp) == has(oldObject.metadata.creationTimestamp) &&
+        (!has(object.metadata.creationTimestamp) || object.metadata.creationTimestamp == oldObject.metadata.creationTimestamp) &&
+        has(object.metadata.generateName) == has(oldObject.metadata.generateName) &&
+        (!has(object.metadata.generateName) || object.metadata.generateName == oldObject.metadata.generateName) &&
+        has(object.metadata.deletionGracePeriodSeconds) == has(oldObject.metadata.deletionGracePeriodSeconds) &&
+        (!has(object.metadata.deletionGracePeriodSeconds) ||
+          object.metadata.deletionGracePeriodSeconds == oldObject.metadata.deletionGracePeriodSeconds)
+  validations:
+    - expression: {{ printf "request.operation == 'CREATE' ? request.userInfo.username == 'system:serviceaccount:%s:prokrust-application-controller' : variables.isGarbageCollector && (request.operation == 'DELETE' || variables.foregroundFinalizerUpdate)" .Release.Namespace | quote }}
+      message: "Frozen Workflow plans are created only by Operator and removed only by owner garbage collection; GC updates only release foregroundDeletion."
+    - expression: "request.operation == 'DELETE' || (has(object.immutable) && object.immutable && has(object.data) && size(object.data) == 2 && 'execution.json' in object.data && 'artifact.json' in object.data && size(object.data['execution.json']) <= 524288)"
+      message: "Frozen Workflow plans must be immutable, bounded execution anchors."
+    - expression: >-
+        request.operation != 'UPDATE' ||
+        (object.immutable == oldObject.immutable && object.data == oldObject.data &&
+          has(object.binaryData) == has(oldObject.binaryData) &&
+          (!has(object.binaryData) || object.binaryData == oldObject.binaryData))
+      message: "Garbage collection cannot change frozen execution bytes."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-workflow-anchor" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-workflow-anchor" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}

@@ -1,0 +1,379 @@
+{{- $secretNames := list .Values.licensing.credentialSecret .Values.licensing.identitySecret .Values.licensing.entitlementSecret .Values.licensing.webhook.tlsSecret .Values.licensing.startup.tlsSecret "prokrust-license-challenge" -}}
+{{- if ne (len $secretNames) (len (uniq $secretNames)) -}}
+{{- fail "licensing credentials, controller TLS and controller-owned Secret names must be distinct" -}}
+{{- end -}}
+{{- $allowKonnectivityAgents := false -}}
+{{- if hasKey .Values.licensing.webhook "allowKonnectivityAgents" -}}
+{{- $allowKonnectivityAgents = .Values.licensing.webhook.allowKonnectivityAgents -}}
+{{- end -}}
+{{- if not (kindIs "bool" $allowKonnectivityAgents) -}}
+{{- fail "licensing.webhook.allowKonnectivityAgents must be a boolean" -}}
+{{- end -}}
+{{- if not .Values.licensing.webhook.certManager -}}
+{{- $_ := required "licensing.webhook.caBundle is required with externally provisioned webhook TLS" .Values.licensing.webhook.caBundle -}}
+{{- end -}}
+apiVersion: platform.prokrust.ai/v1beta1
+kind: LicenseActivation
+metadata:
+  name: default
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  serverUrl: {{ .Values.licensing.serverURL | quote }}
+  credentialSecretRef: {name: {{ .Values.licensing.credentialSecret | quote }}}
+  identitySecretRef: {name: {{ .Values.licensing.identitySecret | quote }}}
+  entitlementSecretRef: {name: {{ .Values.licensing.entitlementSecret | quote }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-license-activation
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [platform.prokrust.ai]
+    resources: [licenseactivations]
+    resourceNames: [default]
+    verbs: [get]
+  - apiGroups: [platform.prokrust.ai]
+    resources: [licenseactivations/status]
+    resourceNames: [default]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-license-activation
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-license-activation
+subjects:
+  - kind: ServiceAccount
+    name: prokrust-application-controller
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-license-webhook
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- include "operator.serviceFamily" . | nindent 2 }}
+  selector: {app.kubernetes.io/name: prokrust-application-controller}
+  ports: [{name: https, port: 443, targetPort: license-webhook}]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ printf "%s-prokrust-license" .Release.Namespace }}
+  {{- if .Values.licensing.webhook.certManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/prokrust-license-webhook" .Release.Namespace | quote }}
+  {{- end }}
+webhooks:
+  - name: namespace.enrollment.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-namespace
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    # Kubernetes evaluates this selector on both old and new Namespace objects.
+    objectSelector:
+      matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [namespaces]
+        scope: Cluster
+  - name: submission.enrollment.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-workspace-submission
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+    rules:
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE]
+        resources: [trainingruns, trainingstudies, predictionruns, inferenceendpoints]
+        scope: Namespaced
+      - apiGroups: [data.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE]
+        resources: [tablesnapshots, graphsnapshots, snapshotpreparations, snapshotbuilds]
+        scope: Namespaced
+  - name: compute.license.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: NoneOnDryRun
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-license
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    # Classification uses executed operation provenance, never an exemption label.
+    matchConditions:
+      - name: licensed-compute
+        expression: {{ printf "(%s) || (has(object.spec.schedulingGates) && object.spec.schedulingGates.exists(g, g.name == 'licensing.prokrust.ai/admission')) || (oldObject != null && has(oldObject.spec.schedulingGates) && oldObject.spec.schedulingGates.exists(g, g.name == 'licensing.prokrust.ai/admission'))" (include "operator.licenseWorkloadMatch" .) | quote }}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods", "pods/resize", "pods/ephemeralcontainers"]
+        scope: Namespaced
+  - name: binding.license.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-license-binding
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    # The standard scheduler honors gates itself. Skip only its exact trusted
+    # identity, keeping bootstrap Pods schedulable before the webhook starts.
+    matchConditions:
+      - name: nonstandard-binding-caller
+        expression: "request.userInfo.username != 'system:kube-scheduler'"
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods/binding"]
+        scope: Namespaced
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ printf "%s-prokrust-license" .Release.Namespace }}
+  {{- if .Values.licensing.webhook.certManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/prokrust-license-webhook" .Release.Namespace | quote }}
+  {{- end }}
+webhooks:
+  - name: scheduling.license.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    reinvocationPolicy: IfNeeded
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /mutate-license
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    matchConditions:
+      - name: licensed-compute
+        expression: {{ include "operator.licenseWorkloadMatch" . | quote }}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: Namespaced
+{{- if .Values.licensing.webhook.certManager }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: prokrust-license-selfsigned
+  namespace: {{ .Release.Namespace }}
+spec: {selfSigned: {}}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prokrust-license-ca
+  namespace: {{ .Release.Namespace }}
+spec:
+  isCA: true
+  commonName: prokrust-license-admission-ca
+  secretName: prokrust-license-webhook-ca
+  issuerRef: {name: prokrust-license-selfsigned, kind: Issuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: prokrust-license-ca
+  namespace: {{ .Release.Namespace }}
+spec:
+  ca: {secretName: prokrust-license-webhook-ca}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prokrust-license-webhook
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.licensing.webhook.tlsSecret }}
+  dnsNames:
+    - {{ printf "prokrust-license-webhook.%s.svc" .Release.Namespace }}
+    - {{ printf "prokrust-license-webhook.%s.svc.cluster.local" .Release.Namespace }}
+  issuerRef: {name: prokrust-license-ca, kind: Issuer}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-license-webhook-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+  policyTypes: [Ingress]
+  {{- if or .Values.licensing.webhook.apiServerIngressCIDRs $allowKonnectivityAgents }}
+  ingress:
+    - from:
+        {{- range .Values.licensing.webhook.apiServerIngressCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+        {{- if $allowKonnectivityAgents }}
+        # A single peer combines namespace and Pod selectors with AND semantics.
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: konnectivity-agent}
+        {{- end }}
+      ports: [{protocol: TCP, port: 8443}]
+  {{- else }}
+  # Admission has durable side effects. Never expose it to arbitrary tenant callers.
+  ingress: []
+  {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-license-server-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+  policyTypes: [Egress]
+  egress:
+    - {{- if .Values.licensing.serverEgressCIDRs }}
+      to:
+        {{- range .Values.licensing.serverEgressCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-runtime-startup
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- include "operator.serviceFamily" . | nindent 2 }}
+  # Standbys serve CAS-backed requests while controller readiness remains leader-only.
+  publishNotReadyAddresses: true
+  selector: {app.kubernetes.io/name: prokrust-application-controller}
+  ports: [{name: https, port: 443, targetPort: startup}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-prokrust-startup-tokenreview" .Release.Namespace }}
+rules:
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+  {{- if .Values.serving.enabled }}
+  # Serving startup verifies scheduler-added topology against its bound Node.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-prokrust-startup-tokenreview" .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ printf "%s-prokrust-startup-tokenreview" .Release.Namespace }}}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-application-controller, namespace: {{ .Release.Namespace }}}
+{{- if .Values.licensing.webhook.certManager }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prokrust-runtime-startup
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.licensing.startup.tlsSecret }}
+  dnsNames:
+    - {{ printf "prokrust-runtime-startup.%s.svc" .Release.Namespace }}
+    - {{ printf "prokrust-runtime-startup.%s.svc.cluster.local" .Release.Namespace }}
+  issuerRef: {name: prokrust-license-ca, kind: Issuer}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-runtime-startup-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+          podSelector:
+            matchLabels: {prokrust.ai/workload: product}
+        - namespaceSelector:
+            matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/component: model-serving}
+      ports: [{protocol: TCP, port: 8444}]

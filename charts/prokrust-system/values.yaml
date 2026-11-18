@@ -1,0 +1,176 @@
+connectors:
+  enabled: false
+  registryConfigMap: prokrust-connector-registry
+  registryItems: []
+  trustBundleConfigMap: ''
+  bootstrapCA: true
+global:
+  awsRegion: ''
+  networkFamily: IPv4
+  workloadPlacementProfile: arm64
+  imagePullSecrets: []
+  dnsServerCIDRs: []
+  networkPolicy:
+    awsAuth:
+      enabled: false
+      stsCIDRs: []
+      podIdentityAgentEnabled: false
+    gcpAuth:
+      enabled: false
+      metadataEndpoints: []
+      googleApiCIDRs: []
+    dns:
+      namespaceSelector:
+        kubernetes.io/metadata.name: kube-system
+      podSelector:
+        k8s-app: kube-dns
+    apiServerEndpoints: []
+    sourceStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    artifactStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    ballista:
+      podSelector:
+        app.kubernetes.io/name: ballista-gate
+      ports:
+      - 50050
+      - 50051
+      - 50052
+    inferenceClientPodSelector:
+      prokrust.ai/inference-client: 'true'
+  oidc:
+    enabled: false
+    revision: 1
+    providers: {}
+    targets: []
+    providerEgressCIDRs: []
+    allowArtifactHostInspection: false
+    redis:
+      image: ''
+      storage: 2Gi
+      storageClassName: ''
+images:
+  operator:
+    repository: ar.prokrust.io/prokrust/operator
+    digest: sha256:ec6347ce0adc30524bdd67f2f378f0c05d28e905b1e80f453dc57eefb345ae5e
+    pullPolicy: IfNotPresent
+controllers:
+  applicationReplicas: 1
+  ballistaClusterReplicas: 1
+  applicationResources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+      ephemeral-storage: 512Mi
+  ballistaClusterResources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+      ephemeral-storage: 512Mi
+artifactCredentials:
+  authMode: mounted-secret
+  workloadIdentity: null
+  federation: null
+  existingSecret: prokrust-artifact-credentials
+  accessKeyIdKey: AWS_ACCESS_KEY_ID
+  secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+producerProvenance:
+  dataJob:
+    version: 0.13.0-rc.1
+    images:
+    - ar.prokrust.io/prokrust/data-job@sha256:65bfb6fbb828df79a48b9baeca3d721072bd26319135591083b06011e1957581
+  trainer:
+    version: 0.11.0-rc.1
+    images:
+    - ar.prokrust.io/prokrust/trainer-cuda@sha256:7697b034af65d75e9e22ace78e1de2ffe8902257c701b8b511c9f48a1719eac1
+    - ar.prokrust.io/prokrust/trainer@sha256:6f500c234cc66450e4b7e2a61c4c7f25f5f7f0f0b60d187805a6f2d9386777b7
+  batchPredictor:
+    version: 0.11.0-rc.1
+    images:
+    - ar.prokrust.io/prokrust/batch-predictor@sha256:1a84f9abc224c765b8e947b55fe5d6ef38553f5505b0df4d56f87f572a6e1544
+components:
+  data-job:
+    version: 0.13.0-rc.1
+  trainer:
+    version: 0.11.0-rc.1
+  batch-predictor:
+    version: 0.11.0-rc.1
+  serving:
+    version: 0.11.0-rc.2
+  web-api:
+    version: 0.24.0-rc.1
+  ballista:
+    version: 0.4.0
+    chartVersion: 0.4.0
+licensing:
+  argoExecutorImage: ar.prokrust.io/prokrust/argoexec@sha256:bfd67ca65831d95d1e0b59ecf986c2679036411911e06c947e61a9267cedf1bf
+  serverURL: https://license.prokrust.ai
+  credentialSecret: prokrust-license-credential
+  identitySecret: prokrust-installation-identity
+  entitlementSecret: prokrust-license-entitlement
+  serverEgressCIDRs: []
+  webhook:
+    allowKonnectivityAgents: false
+    certManager: true
+    tlsSecret: prokrust-license-webhook-tls
+    caBundle: ''
+    apiServerIngressCIDRs: []
+  startup:
+    tlsSecret: prokrust-runtime-startup-tls
+  metrics:
+    workloadSeries:
+      enabled: false
+      maxOwners: 1000
+    trustedSources: []
+    serviceMonitor:
+      enabled: false
+      labels: {}
+    prometheusRule:
+      enabled: false
+      labels: {}
+workflowIntegrity:
+  schedulingProfile: standard
+  argoControllerUsername: ''
+  kserveControllerUsername: system:serviceaccount:kserve:kserve-controller-manager
+leaseBootstrap:
+  mode: helm
+  namespace: kube-system
+  image: docker.io/alpine/kubectl:1.36.4@sha256:a2cd8ee034cbe04d651e565b3373299b31921de5c2af86490559e21b3e197808
+serving:
+  enabled: false
+  workloadPlacementProfile: inherit
+web-api:
+  webApi:
+    enabled: true
+  images:
+    webApi:
+      repository: ar.prokrust.io/prokrust/web-api
+      digest: sha256:ec18dbcd4bf94c9186cca930d126516cd58a57548948a88385187f38014b3fb5
+      pullPolicy: IfNotPresent
+awsAuth:
+  stsNetworkCIDRs: []
+catalogNetworkPolicy:
+  cidrs: []
+  port: 443
+profiling:
+  enabled: false
+  alloyImage: docker.io/grafana/alloy@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+  backendImage: docker.io/grafana/pyroscope@sha256:bf667534cd403320573063894e3faba20a5a5d1bfb92eddaecfabeb2446c502b
+  maxConcurrentCaptures: 2
+  retentionHours: 24
+  storageSize: 8Gi
+  storageClassName: ''
+  nsightToolsPVC: ''
+crdBundleSha256: 5a1536205b4519785829fc3400bed5346c3bcf4509072d8e5f87b98799c0fba8

@@ -1,0 +1,98 @@
+{{- if .Values.profiling.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-performance-collector" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs]
+  matchConditions:
+    - name: capture-job
+      expression: "object.metadata.name.startsWith('capture-') || (has(object.metadata.labels) && 'app.kubernetes.io/name' in object.metadata.labels && object.metadata.labels['app.kubernetes.io/name'] == 'prokrust-performance-collector') || (has(object.spec.template.spec.serviceAccountName) && object.spec.template.spec.serviceAccountName == 'prokrust-performance-collector')"
+  variables:
+    - name: pod
+      expression: object.spec.template.spec
+    - name: collector
+      expression: variables.pod.containers[0]
+    - name: garbageCollectorFinalizerRemoval
+      expression: >-
+        request.userInfo.username == 'system:serviceaccount:kube-system:generic-garbage-collector' &&
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') &&
+        request.resource.group == 'batch' && request.resource.version == 'v1' &&
+        request.resource.resource == 'jobs' && object != null && oldObject != null &&
+        object.apiVersion == 'batch/v1' && oldObject.apiVersion == 'batch/v1' &&
+        object.kind == 'Job' && oldObject.kind == 'Job' &&
+        has(oldObject.metadata.deletionTimestamp) && oldObject.metadata.deletionTimestamp != null &&
+        has(object.metadata.deletionTimestamp) &&
+        object.metadata.deletionTimestamp == oldObject.metadata.deletionTimestamp &&
+        object.metadata.uid == oldObject.metadata.uid && object.metadata.uid != '' &&
+        object.metadata.resourceVersion == oldObject.metadata.resourceVersion &&
+        object.metadata.resourceVersion != '' &&
+        object.metadata.name == oldObject.metadata.name && object.metadata.name == request.name &&
+        object.metadata.namespace == oldObject.metadata.namespace && object.metadata.namespace == request.namespace &&
+        has(oldObject.metadata.finalizers) &&
+        oldObject.metadata.finalizers.exists(f, f in ['orphan', 'foregroundDeletion']) &&
+        oldObject.metadata.finalizers.all(f, f != '' &&
+          oldObject.metadata.finalizers.filter(other, other == f).size() == 1) &&
+        (has(object.metadata.finalizers) ? object.metadata.finalizers : []) ==
+          oldObject.metadata.finalizers.filter(f, !(f in ['orphan', 'foregroundDeletion'])) &&
+        has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+        (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels) &&
+        has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
+        (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations) &&
+        has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+        (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences) &&
+        has(object.metadata.generation) == has(oldObject.metadata.generation) &&
+        (!has(object.metadata.generation) || object.metadata.generation == oldObject.metadata.generation) &&
+        has(object.metadata.creationTimestamp) == has(oldObject.metadata.creationTimestamp) &&
+        (!has(object.metadata.creationTimestamp) || object.metadata.creationTimestamp == oldObject.metadata.creationTimestamp) &&
+        has(object.metadata.generateName) == has(oldObject.metadata.generateName) &&
+        (!has(object.metadata.generateName) || object.metadata.generateName == oldObject.metadata.generateName) &&
+        has(object.metadata.deletionGracePeriodSeconds) == has(oldObject.metadata.deletionGracePeriodSeconds) &&
+        (!has(object.metadata.deletionGracePeriodSeconds) || object.metadata.deletionGracePeriodSeconds == oldObject.metadata.deletionGracePeriodSeconds) &&
+        object.spec == oldObject.spec &&
+        has(object.status) == has(oldObject.status) &&
+        (!has(object.status) || object.status == oldObject.status)
+  validations:
+    - expression: {{ printf "request.userInfo.username == 'system:serviceaccount:%s:prokrust-application-controller' || variables.garbageCollectorFinalizerRemoval" .Release.Namespace | quote }}
+      message: "Only the profiling controller may manage collectors; the built-in garbage collector may finish deletion without changing the workload."
+    - expression: "object.metadata.name.matches('^capture-[a-f0-9]{32}$') && has(object.metadata.labels) && 'prokrust.ai/performance-capture' in object.metadata.labels && object.metadata.labels['prokrust.ai/performance-capture'].matches('^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$') && object.spec.template.metadata.labels['prokrust.ai/performance-capture'] == object.metadata.labels['prokrust.ai/performance-capture'] && object.spec.template.metadata.labels['app.kubernetes.io/name'] == 'prokrust-performance-collector'"
+      message: "Collector identity must bind one immutable capture."
+    - expression: "object.spec.backoffLimit == 0 && object.spec.ttlSecondsAfterFinished == 600 && object.spec.activeDeadlineSeconds >= 65 && object.spec.activeDeadlineSeconds <= 180 && (!has(object.spec.parallelism) || object.spec.parallelism == 1) && (!has(object.spec.completions) || object.spec.completions == 1) && (!has(object.spec.suspend) || !object.spec.suspend)"
+      message: "Collectors require a bounded single attempt and cleanup deadline."
+    - expression: "variables.pod.serviceAccountName == 'prokrust-performance-collector' && variables.pod.automountServiceAccountToken == false && has(variables.pod.nodeName) && size(variables.pod.nodeName) > 0 && variables.pod.hostPID && (!has(variables.pod.hostNetwork) || !variables.pod.hostNetwork) && (!has(variables.pod.hostIPC) || !variables.pod.hostIPC) && variables.pod.restartPolicy == 'Never' && variables.pod.terminationGracePeriodSeconds == 15 && size(variables.pod.containers) == 1 && (!has(variables.pod.initContainers) || size(variables.pod.initContainers) == 0) && (!has(variables.pod.ephemeralContainers) || size(variables.pod.ephemeralContainers) == 0)"
+      message: "Collector host access is restricted to its fixed tokenless pod."
+    - expression: "variables.pod.securityContext.runAsUser == 0 && variables.pod.securityContext.runAsGroup == 0 && variables.pod.securityContext.seccompProfile.type == 'Unconfined' && (!has(variables.pod.securityContext.sysctls) || size(variables.pod.securityContext.sysctls) == 0) && (!has(variables.pod.securityContext.supplementalGroups) || size(variables.pod.securityContext.supplementalGroups) == 0)"
+      message: "Collector process identity must match the reviewed eBPF profile."
+    - expression: {{ printf "variables.collector.name == 'collector' && variables.collector.image == '%s' && variables.collector.imagePullPolicy == 'IfNotPresent'" .Values.profiling.alloyImage | quote }}
+      message: "Collector image must match the installation's immutable Alloy pin."
+    - expression: 'variables.collector.command == ["/bin/sh", "-c"] && variables.collector.args == ["timeout --signal=TERM --kill-after=10s \"${CAPTURE_SECONDS}s\" /usr/bin/alloy run --disable-reporting --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy /etc/alloy/config.alloy; status=$?; test \"$status\" = 0 -o \"$status\" = 124"]'
+      message: "Collector command must retain its hard timeout and fixed configuration."
+    - expression: "size(variables.collector.env) == 1 && variables.collector.env[0].name == 'CAPTURE_SECONDS' && variables.collector.env[0].value.matches('^([5-9]|[1-9][0-9]|1[01][0-9]|120)$') && int(variables.collector.env[0].value) + 60 == object.spec.activeDeadlineSeconds && (!has(variables.collector.envFrom) || size(variables.collector.envFrom) == 0)"
+      message: "Capture duration must be between five and 120 seconds."
+    - expression: "variables.collector.securityContext.privileged == false && variables.collector.securityContext.allowPrivilegeEscalation == false && variables.collector.securityContext.readOnlyRootFilesystem && variables.collector.securityContext.capabilities.drop == ['ALL'] && variables.collector.securityContext.capabilities.add == ['BPF', 'PERFMON', 'SYS_PTRACE', 'CHECKPOINT_RESTORE', 'SYS_RESOURCE', 'DAC_READ_SEARCH', 'SYSLOG']"
+      message: "Collector capabilities must equal the reviewed eBPF capability set."
+    - expression: "variables.collector.resources.limits == {'cpu': '1', 'memory': '512Mi', 'ephemeral-storage': '256Mi'} && variables.collector.resources.requests == {'cpu': '100m', 'memory': '128Mi', 'ephemeral-storage': '64Mi'}"
+      message: "Collector resource usage must retain fixed bounds."
+    - expression: "size(variables.pod.volumes) == 4 && variables.pod.volumes.all(v, (v.name == 'config' && has(v.configMap) && v.configMap.name == object.metadata.name) || (v.name in ['state', 'tmp'] && has(v.emptyDir) && v.emptyDir.sizeLimit == '128Mi' && (!has(v.emptyDir.medium) || v.emptyDir.medium == '')) || (v.name == 'tracing' && has(v.hostPath) && v.hostPath.path == '/sys/kernel/tracing' && v.hostPath.type == 'Directory'))"
+      message: "Collector volumes are limited to its config, bounded scratch and tracing filesystem."
+    - expression: "size(variables.collector.volumeMounts) == 4 && variables.collector.volumeMounts.all(v, (!has(v.subPath) || v.subPath == '') && (!has(v.subPathExpr) || v.subPathExpr == '') && (!has(v.mountPropagation) || v.mountPropagation == 'None') && ((v.name == 'config' && v.mountPath == '/etc/alloy' && v.readOnly) || (v.name == 'state' && v.mountPath == '/var/lib/alloy') || (v.name == 'tmp' && v.mountPath == '/tmp') || (v.name == 'tracing' && v.mountPath == '/sys/kernel/tracing' && v.readOnly)))"
+      message: "Collector mount paths and host read-only access cannot be widened."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-performance-collector" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-performance-collector" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .Release.Namespace | quote }}
+{{- end }}

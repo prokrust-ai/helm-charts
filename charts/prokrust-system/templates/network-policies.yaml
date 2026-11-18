@@ -1,0 +1,198 @@
+{{- $root := . -}}
+{{- $dnsServerCIDRs := include "operator.dnsServerCIDRs" . | fromJsonArray -}}
+{{- $namespace := .Release.Namespace -}}
+{{- $dns := .Values.global.networkPolicy.dns -}}
+{{- $api := .Values.global.networkPolicy.apiServerEndpoints -}}
+{{- $artifact := .Values.global.networkPolicy.artifactStore -}}
+{{- $source := .Values.global.networkPolicy.sourceStore | default dict -}}
+{{- $catalogs := .Values.catalogNetworkPolicy | default dict -}}
+{{- $ballista := .Values.global.networkPolicy.ballista -}}
+{{- $gcp := .Values.global.networkPolicy.gcpAuth | default dict -}}
+{{- if $catalogs.cidrs }}
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-catalog-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      prokrust.ai/catalog-access: "true"
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        {{- range $catalogs.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $catalogs.port }}}
+{{- end }}
+{{- if $gcp.enabled }}
+{{- range $profile := list (dict "name" "control-plane" "key" "app.kubernetes.io/name" "values" (list "prokrust-application-controller" "prokrust-ballista-cluster-controller" "prokrust-web-api" "ballista-gate")) }}
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-gcp-{{ $profile.name }}-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" $root | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: {{ $profile.key | quote }}
+        operator: In
+        values: {{ toJson $profile.values }}
+  policyTypes: ["Egress"]
+  egress:
+    {{- range $gcp.metadataEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        {{- range .ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+    {{- if $gcp.googleApiCIDRs }}
+    - to:
+        {{- range $gcp.googleApiCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: 443}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-operator-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prokrust-application-controller
+      app.kubernetes.io/component: controller
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml $dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml $dns.podSelector | nindent 14 }}
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- range $api }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr }}}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+    {{- if or $artifact.cidrs $artifact.podSelector }}
+    - to:
+        {{- range $artifact.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $artifact.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-ballista-controller-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prokrust-ballista-cluster-controller
+      app.kubernetes.io/component: controller
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: ballista-gate, app.kubernetes.io/component: scheduler}
+      ports:
+        - {protocol: TCP, port: 50050}
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml $dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml $dns.podSelector | nindent 14 }}
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- range $api }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr }}}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+{{- if $dnsServerCIDRs }}
+{{- if dig "webApi" "enabled" false (index .Values "web-api" | default dict) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-web-api-configured-dns-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  # Match the enabled immutable Web API child policy's exact client set.
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-web-api}}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+{{- end }}
+{{- end }}
+{{- if $artifact.podSelector }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-installation-artifact-workspaces
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [prokrust-application-controller, prokrust-web-api]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {prokrust.ai/installation: {{ .Release.Namespace | quote }}}
+          podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+      ports: [{protocol: TCP, port: {{ $artifact.port }}}]
+{{- end }}

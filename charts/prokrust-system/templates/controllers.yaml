@@ -1,0 +1,282 @@
+{{- $awsIdentity := .Values.artifactCredentials.workloadIdentity -}}
+{{- if $awsIdentity -}}
+{{- if not (has $awsIdentity.provider (list "IRSA" "EKSPodIdentity")) -}}{{ fail "artifactCredentials.workloadIdentity.provider must select IRSA or EKSPodIdentity" }}{{- end -}}
+{{- if not (regexMatch "^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$" $awsIdentity.roleArn) -}}{{ fail "artifactCredentials.workloadIdentity requires an exact IAM role ARN" }}{{- end -}}
+{{- if or (ne .Values.artifactCredentials.authMode "workload-identity") .Values.artifactCredentials.federation -}}{{ fail "AWS artifact identity requires workload-identity mode without GCP federation" }}{{- end -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prokrust-application-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+    app.kubernetes.io/name: prokrust-application-controller
+    app.kubernetes.io/component: controller
+spec:
+  replicas: {{ .Values.controllers.applicationReplicas }}
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prokrust-application-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prokrust-application-controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/part-of: prokrust
+        {{- if $awsIdentity }}
+        prokrust.ai/aws-auth: 'true'
+        {{- if eq $awsIdentity.provider "EKSPodIdentity" }}
+        prokrust.ai/aws-pod-identity: 'true'
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- include "operator.podPlacement" . | nindent 6 }}
+      serviceAccountName: prokrust-application-controller
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: operator
+          image: {{ include "operator.image" .Values.images.operator }}
+          imagePullPolicy: {{ .Values.images.operator.pullPolicy }}
+          args: ["--role", "application", "--namespace", "$(RP_POD_NAMESPACE)"]
+          env:
+            {{- include "operator.profilingEnv" . | nindent 12 }}
+            - name: PROKRUST_CONNECTORS_ENABLED
+              value: {{ .Values.connectors.enabled | quote }}
+            {{- with .Values.global.awsRegion }}
+            - name: AWS_REGION
+              value: {{ . | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.connectors.enabled }}
+            - name: PROKRUST_CONNECTOR_CONFIG
+              value: /etc/prokrust/connectors/registry.json
+            {{- with .Values.connectors.trustBundleConfigMap }}
+            - name: PROKRUST_CONNECTOR_TRUST_BUNDLE
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            - name: PROKRUST_SERVING_ENABLED
+              value: {{ .Values.serving.enabled | quote }}
+            - name: PROKRUST_SERVING_WORKLOAD_PLACEMENT_PROFILE
+              value: {{ .Values.serving.workloadPlacementProfile | quote }}
+            - name: PROKRUST_NETWORK_FAMILY
+              value: {{ include "operator.networkFamily" . | quote }}
+            - name: PROKRUST_LICENSE_WORKLOAD_METRICS
+              value: {{ .Values.licensing.metrics.workloadSeries.enabled | quote }}
+            - name: PROKRUST_LICENSE_WORKLOAD_METRICS_MAX_OWNERS
+              value: {{ .Values.licensing.metrics.workloadSeries.maxOwners | quote }}
+            - name: PROKRUST_STARTUP_TLS_SECRET
+              value: {{ .Values.licensing.startup.tlsSecret | quote }}
+            - name: PROKRUST_LICENSE_METRICS_ADDRESS
+              value: {{ printf "%s:8082" (include "operator.bindHost" .) | quote }}
+            - name: RP_PRODUCER_PROVENANCE
+              value: {{ required "producerProvenance requires selected data-job, trainer and batch-predictor release metadata" .Values.producerProvenance | toJson | quote }}
+            {{- with .Values.workflowIntegrity.argoControllerUsername }}
+            - name: PROKRUST_ARGO_CONTROLLER_USERNAME
+              value: {{ . | quote }}
+            {{- end }}
+            - name: PROKRUST_WORKFLOW_SCHEDULING_PROFILE
+              value: {{ include "operator.schedulingProfile" . | quote }}
+            - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
+              value: {{ include "operator.placementProfile" . | quote }}
+            - name: PROKRUST_WORKFLOW_IMAGE_PULL_SECRETS
+              value: {{ include "operator.imagePullSecrets" . | quote }}
+            - name: PROKRUST_ARGO_EXECUTOR_IMAGE
+              value: {{ required "licensing.argoExecutorImage must match the platform's exact pinned Argo executor image" .Values.licensing.argoExecutorImage | quote }}
+            - name: RP_POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: RP_POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            {{- if $awsIdentity }}
+            - name: PROKRUST_CONTROLLER_SERVICE_ACCOUNT_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: PROKRUST_CONTROLLER_SERVICE_ACCOUNT_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.serviceAccountName}}
+            - name: RP_ARTIFACT_AWS_IDENTITY_PROVIDER
+              value: {{ ternary "irsa" "eks-pod-identity" (eq $awsIdentity.provider "IRSA") | quote }}
+            - name: RP_ARTIFACT_AWS_ROLE_ARN
+              value: {{ $awsIdentity.roleArn | quote }}
+            {{- end }}
+            - name: RP_ARTIFACT_AUTH_MODE
+              value: {{ .Values.artifactCredentials.authMode | quote }}
+            {{- if eq .Values.artifactCredentials.authMode "mounted-secret" }}
+            - name: RP_ARTIFACT_ACCESS_KEY_ID_FILE
+              value: /var/run/prokrust/credentials/access-key-id
+            - name: RP_ARTIFACT_SECRET_ACCESS_KEY_FILE
+              value: /var/run/prokrust/credentials/secret-access-key
+            {{- end }}
+            {{- with .Values.artifactCredentials.federation }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/prokrust/gcp/config.json
+            - name: RP_ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS_FILE
+              value: /var/run/prokrust/gcp/config.json
+            {{- end }}
+          ports:
+            - {name: health, containerPort: 8081}
+            - {name: license-webhook, containerPort: 8443}
+            - {name: startup, containerPort: 8444}
+            - {name: license-metrics, containerPort: 8082}
+          readinessProbe: {httpGet: {path: /availablez, port: health}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: health}, periodSeconds: 10}
+          resources:
+            {{- toYaml .Values.controllers.applicationResources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            {{- if .Values.connectors.enabled }}
+            - {name: connector-registry, mountPath: /etc/prokrust/connectors, readOnly: true}
+            {{- end }}
+            - {name: tmp, mountPath: /tmp}
+            - {name: license-webhook-tls, mountPath: /var/run/prokrust-webhook, readOnly: true}
+            - {name: startup-tls, mountPath: /var/run/prokrust-startup-tls, readOnly: true}
+            {{- if eq .Values.artifactCredentials.authMode "mounted-secret" }}
+            - {name: artifact-credentials, mountPath: /var/run/prokrust/credentials, readOnly: true}
+            {{- end }}
+            {{- with .Values.artifactCredentials.federation }}
+            - {name: gcp-federation, mountPath: /var/run/prokrust/gcp, readOnly: true}
+            {{- end }}
+      volumes:
+        {{- if .Values.connectors.enabled }}
+        - name: connector-registry
+          configMap:
+            name: {{ .Values.connectors.registryConfigMap | quote }}
+            {{- with .Values.connectors.registryItems }}
+            items: {{ . | toJson }}
+            {{- end }}
+        {{- end }}
+        - name: startup-tls
+          secret:
+            secretName: {{ .Values.licensing.startup.tlsSecret }}
+            defaultMode: 288
+        - name: license-webhook-tls
+          secret:
+            secretName: {{ .Values.licensing.webhook.tlsSecret }}
+            defaultMode: 288
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+        {{- if eq .Values.artifactCredentials.authMode "mounted-secret" }}
+        - name: artifact-credentials
+          secret:
+            secretName: {{ .Values.artifactCredentials.existingSecret }}
+            defaultMode: 288
+            items:
+              - {key: {{ .Values.artifactCredentials.accessKeyIdKey }}, path: access-key-id}
+              - {key: {{ .Values.artifactCredentials.secretAccessKeyKey }}, path: secret-access-key}
+        {{- end }}
+        {{- with .Values.artifactCredentials.federation }}
+        - name: gcp-federation
+          projected:
+            defaultMode: 288
+            sources:
+              - configMap:
+                  name: {{ .configMapName | quote }}
+                  items: [{key: {{ .configKey | quote }}, path: config.json}]
+              - serviceAccountToken:
+                  audience: {{ .audience | quote }}
+                  expirationSeconds: 3600
+                  path: token
+        {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prokrust-ballista-cluster-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+    app.kubernetes.io/name: prokrust-ballista-cluster-controller
+    app.kubernetes.io/component: controller
+spec:
+  replicas: {{ .Values.controllers.ballistaClusterReplicas }}
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prokrust-ballista-cluster-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prokrust-ballista-cluster-controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/part-of: prokrust
+        {{- if $awsIdentity }}
+        prokrust.ai/aws-auth: 'true'
+        {{- if eq $awsIdentity.provider "EKSPodIdentity" }}
+        prokrust.ai/aws-pod-identity: 'true'
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- include "operator.podPlacement" . | nindent 6 }}
+      serviceAccountName: prokrust-ballista-cluster-controller
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: operator
+          image: {{ include "operator.image" .Values.images.operator }}
+          imagePullPolicy: {{ .Values.images.operator.pullPolicy }}
+          args: ["--role", "ballista-cluster", "--namespace", "$(RP_POD_NAMESPACE)"]
+          env:
+            - name: PROKRUST_CONNECTORS_ENABLED
+              value: {{ .Values.connectors.enabled | quote }}
+            {{- with .Values.global.awsRegion }}
+            - name: AWS_REGION
+              value: {{ . | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if $awsIdentity }}
+            - name: RP_ARTIFACT_AUTH_MODE
+              value: workload-identity
+            {{- end }}
+            - name: PROKRUST_NETWORK_FAMILY
+              value: {{ include "operator.networkFamily" . | quote }}
+            - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
+              value: {{ include "operator.placementProfile" . | quote }}
+            - name: RP_POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: RP_POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            {{- if $awsIdentity }}
+            - name: PROKRUST_CONTROLLER_SERVICE_ACCOUNT_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: PROKRUST_CONTROLLER_SERVICE_ACCOUNT_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.serviceAccountName}}
+            - name: RP_ARTIFACT_AWS_IDENTITY_PROVIDER
+              value: {{ ternary "irsa" "eks-pod-identity" (eq $awsIdentity.provider "IRSA") | quote }}
+            - name: RP_ARTIFACT_AWS_ROLE_ARN
+              value: {{ $awsIdentity.roleArn | quote }}
+            {{- end }}
+          ports:
+            - {name: health, containerPort: 8081}
+          readinessProbe: {httpGet: {path: /readyz, port: health}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: health}, periodSeconds: 10}
+          resources:
+            {{- toYaml .Values.controllers.ballistaClusterResources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}

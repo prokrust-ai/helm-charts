@@ -1,0 +1,35 @@
+# Capacity is platform-owned state, never a user-controlled wake label.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ printf "%s-prokrust-ballista-capacity" .Release.Namespace }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+  matchConditions:
+    - name: protected-capacity-ledger
+      expression: "(object != null && object.metadata.name == 'prokrust-ballista-capacity') || (oldObject != null && oldObject.metadata.name == 'prokrust-ballista-capacity')"
+  validations:
+    - expression: {{ printf "request.userInfo.username in ['system:serviceaccount:%s:prokrust-application-controller', 'system:serviceaccount:%s:prokrust-ballista-cluster-controller'] || (request.operation == 'DELETE' && request.userInfo.username in ['system:serviceaccount:kube-system:generic-garbage-collector', 'system:kube-controller-manager'])" .Release.Namespace .Release.Namespace | quote }}
+      message: "Only the application and Ballista controllers may write capacity state."
+    - expression: "request.operation == 'DELETE' || (has(object.data) && size(object.data) == 1 && 'capacity.json' in object.data && size(object.data['capacity.json']) <= 524288 && !has(object.binaryData) && (!has(object.immutable) || !object.immutable) && has(object.metadata.ownerReferences) && size(object.metadata.ownerReferences) == 1 && object.metadata.ownerReferences[0].apiVersion == 'platform.prokrust.ai/v1beta1' && object.metadata.ownerReferences[0].kind == 'BallistaCluster' && object.metadata.ownerReferences[0].name == 'default')"
+      message: "Capacity state must be bounded and owned by the workspace's BallistaCluster."
+    - expression: "request.operation != 'UPDATE' || (object.metadata.uid == oldObject.metadata.uid && object.metadata.resourceVersion == oldObject.metadata.resourceVersion && object.metadata.ownerReferences == oldObject.metadata.ownerReferences)"
+      message: "Capacity updates require exact identity and resource-version comparison."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ printf "%s-prokrust-ballista-capacity" .Release.Namespace }}
+spec:
+  policyName: {{ printf "%s-prokrust-ballista-capacity" .Release.Namespace }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}

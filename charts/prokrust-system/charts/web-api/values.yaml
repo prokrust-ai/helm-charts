@@ -1,0 +1,54 @@
+global:
+  networkFamily: IPv4
+  imagePullSecrets: []
+  workloadPlacementProfile: arm64
+  oidc:
+    enabled: false
+  networkPolicy:
+    dns:
+      namespaceSelector:
+        kubernetes.io/metadata.name: kube-system
+      podSelector:
+        k8s-app: kube-dns
+    awsAuth:
+      enabled: false
+      stsCIDRs: []
+      podIdentityAgentEnabled: false
+    gcpAuth:
+      enabled: false
+      metadataEndpoints: []
+      googleApiCIDRs: []
+    apiServerEndpoints: []
+    sourceStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    artifactStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    ballista:
+      podSelector:
+        app.kubernetes.io/name: ballista-gate
+      ports:
+      - 50050
+      - 50051
+      - 50052
+    inferenceClientPodSelector:
+      prokrust.ai/inference-client: 'true'
+images:
+  webApi:
+    repository: ar.prokrust.io/prokrust/web-api
+    digest: sha256:ec18dbcd4bf94c9186cca930d126516cd58a57548948a88385187f38014b3fb5
+    pullPolicy: IfNotPresent
+webApi:
+  enabled: false
+  replicas: 1
+  connectorRegistryConfigMap: ''
+  connectorRegistryItems: []
+  browserOrigin: ''
+  argoUiBaseUrl: ''
+  artifactFederation: null
+  artifactWorkloadIdentity: null
+awsAuth:
+  stsNetworkCIDRs: []

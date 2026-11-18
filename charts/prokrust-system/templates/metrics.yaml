@@ -1,0 +1,172 @@
+{{- range .Values.licensing.metrics.trustedSources -}}
+{{- if or (not .namespaceSelector) (not .podSelector) -}}
+{{- fail "licensing.metrics.trustedSources requires nonempty namespaceSelector and podSelector on every peer" -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.licensing.metrics.prometheusRule.enabled (not .Values.licensing.metrics.serviceMonitor.enabled) -}}
+{{- fail "licensing.metrics.prometheusRule requires serviceMonitor.enabled for consistent target labels" -}}
+{{- end -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-license-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+    app.kubernetes.io/name: prokrust-license-metrics
+spec:
+  {{- include "operator.serviceFamily" . | nindent 2 }}
+  # Scrape follower/starting replicas too; alerts select the actual lease holder.
+  publishNotReadyAddresses: true
+  selector: {app.kubernetes.io/name: prokrust-application-controller}
+  ports: [{name: metrics, port: 8082, targetPort: license-metrics}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-license-metrics-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+  policyTypes: [Ingress]
+  {{- if .Values.licensing.metrics.trustedSources }}
+  ingress:
+    - from:
+        {{- range .Values.licensing.metrics.trustedSources }}
+        - namespaceSelector:
+            matchLabels: {{ toYaml .namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml .podSelector | nindent 14 }}
+        {{- end }}
+      ports: [{protocol: TCP, port: 8082}]
+  {{- else }}
+  ingress: []
+  {{- end }}
+{{- if .Values.licensing.metrics.serviceMonitor.enabled }}
+{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor") }}
+{{- fail "licensing.metrics.serviceMonitor requires the Prometheus Operator ServiceMonitor CRD" }}
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prokrust-license-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- merge (deepCopy .Values.licensing.metrics.serviceMonitor.labels) (include "operator.labels" . | fromYaml) | toYaml | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames: [{{ .Release.Namespace | quote }}]
+  selector:
+    matchLabels: {app.kubernetes.io/name: prokrust-license-metrics}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: false
+{{- end }}
+{{- if .Values.licensing.metrics.prometheusRule.enabled }}
+{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/PrometheusRule") }}
+{{- fail "licensing.metrics.prometheusRule requires the Prometheus Operator PrometheusRule CRD" }}
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prokrust-license-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- merge (deepCopy .Values.licensing.metrics.prometheusRule.labels) (include "operator.labels" . | fromYaml) | toYaml | nindent 4 }}
+spec:
+  groups:
+    - name: prokrust.licensing
+      rules:
+        # Installation gauges are duplicated or stale on followers. Select only
+        # the live lease holder, then max across replicas; never sum capacity.
+        {{- $selector := printf "namespace=%q,service=\"prokrust-license-metrics\"" .Release.Namespace }}
+        {{- $leader := printf "prokrust_license_operator_leader{%s} == 1" $selector }}
+        - alert: ProkrustLicenseMetricsUnavailable
+          expr: {{ printf "absent(up{%s}) or min by (namespace, service) (up{%s}) < 1" $selector $selector | quote }}
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: Licensing metrics cannot be scraped
+            description: Check the private metrics peer selectors, monitoring discovery, and controller availability. Missing data is not zero usage.
+        - alert: ProkrustLicenseLeaderUnavailable
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_leader{%s}) < 1" $selector | quote }}
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: No application controller holds the licensing lease
+        - alert: ProkrustLicenseCollectionStale
+          expr: {{ printf "(time() - max by (namespace, service) (prokrust_license_operator_collection_last_success_timestamp_seconds{%s} and on (namespace, pod) (%s)) > 90) or (max by (namespace, service) (prokrust_license_operator_collection_success{%s} and on (namespace, pod) (%s)) < 1)" $selector $leader $selector $leader | quote }}
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: Licensing aggregate collection is failing or stale
+            description: Last good gauges remain exposed. Inspect Kubernetes API, entitlement verification, and ledger failures before treating capacity as available.
+        - alert: ProkrustLicenseRenewalFailed
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_renewal_failed{%s} and on (namespace, pod) (%s)) > 0" $selector $leader | quote }}
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: Entitlement renewal is failing
+            description: The current Renewing=False RenewalFailed condition persists even when cached entitlement remains valid. Inspect activation status and vendor HTTPS connectivity before the entitlement expires.
+        - alert: ProkrustLicenseEntitlementUnavailable
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_entitlement_valid{%s} and on (namespace, pod) (%s)) < 1" $selector $leader | quote }}
+          for: 1m
+          labels: {severity: warning}
+          annotations:
+            summary: New licensed work is blocked by a missing or expired entitlement
+            description: Existing admitted work can continue within its durable envelope. Inspect LicenseActivation conditions and renewal connectivity.
+        - alert: ProkrustLicenseEntitlementExpiring
+          expr: {{ printf "(max by (namespace, service) (prokrust_license_operator_entitlement_expires_timestamp_seconds{%s} and on (namespace, pod) (%s)) - time() < 600) and (max by (namespace, service) (prokrust_license_operator_entitlement_valid{%s} and on (namespace, pod) (%s)) == 1)" $selector $leader $selector $leader | quote }}
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: Licensing renewal deadline is approaching
+        - alert: ProkrustLicenseUnresolvedAdmissions
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_unresolved_slots{%s} and on (namespace, pod) (%s)) > 0" $selector $leader | quote }}
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: Unobserved admissions retain licensed capacity
+            description: Investigate downstream API rejection or delayed persistence. Use the documented fencing recovery workflow; never erase uncertain slots on elapsed time.
+        - alert: ProkrustLicenseClosingAllocations
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_closing_allocations{%s} and on (namespace, pod) (%s)) > 0" $selector $leader | quote }}
+          for: 30m
+          labels: {severity: warning}
+          annotations:
+            summary: Closing allocations still retain capacity
+            description: Check running or terminating workers and unresolved admissions before recovery.
+        - alert: ProkrustLicenseLedgerNearLimit
+          expr: {{ printf "max by (namespace, service) (prokrust_license_operator_ledger_bytes{%s} and on (namespace, pod) (%s)) / max by (namespace, service) (prokrust_license_operator_ledger_limit_bytes{%s} and on (namespace, pod) (%s)) > 0.8" $selector $leader $selector $leader | quote }}
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: Licensing ledger approaches its 900 kB ceiling
+            description: Admission fails closed when the serialized ledger exceeds the ceiling. Investigate retained owners and unresolved slots.
+        - alert: ProkrustLicenseCapacityOverReserved
+          expr: {{ printf "(max by (namespace, service) (prokrust_license_operator_reserved_cpu_millis{%s} and on (namespace, pod) (%s)) > max by (namespace, service) (prokrust_license_operator_licensed_cpu_millis{%s} and on (namespace, pod) (%s))) or (max by (namespace, service) (prokrust_license_operator_reserved_gpus{%s} and on (namespace, pod) (%s)) > max by (namespace, service) (prokrust_license_operator_licensed_gpus{%s} and on (namespace, pod) (%s)))" $selector $leader $selector $leader $selector $leader $selector $leader | quote }}
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: Existing reservations exceed the current entitlement
+            description: This can follow a capacity downgrade. Existing work retains its grants; new work remains blocked until sufficient capacity is available.
+        - alert: ProkrustLicenseWebhookUnavailable
+          expr: {{ printf "min by (namespace, service) (prokrust_license_operator_webhook_available{%s}) < 1" $selector | quote }}
+          for: 1m
+          labels: {severity: critical}
+          annotations:
+            summary: A controller replica has no license admission listener
+    - name: prokrust.licensing.usage
+      interval: 30s
+      rules:
+        {{- $usageLeader := printf "prokrust_license_operator_leader{%s} == 1" $selector }}
+        {{- $fresh := printf "(%s) and on (namespace, pod, cluster) (prokrust_license_operator_collection_success{%s} == 1) and on (namespace, pod, cluster) (up{%s} == 1) and on (namespace, pod, cluster) (time() - prokrust_license_operator_collection_last_success_timestamp_seconds{%s} <= 90) and on (namespace, pod, cluster) (time() >= prokrust_license_operator_collection_last_success_timestamp_seconds{%s})" $usageLeader $selector $selector $selector $selector }}
+        {{- range $suffix := list "reserved_cpu_cores" "allocated_cpu_cores" "reserved_gpus" "allocated_gpus" }}
+        - record: {{ printf "prokrust:license_%s:namespace_class" $suffix }}
+          expr: {{ printf "max by (namespace, service, cluster, workload_namespace, class) (prokrust_license_operator_usage_%s{%s} and on (namespace, pod, cluster) (%s))" $suffix $selector $fresh | quote }}
+        {{- end }}
+{{- end }}

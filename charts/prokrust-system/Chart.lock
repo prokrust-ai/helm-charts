@@ -1,0 +1,6 @@
+dependencies:
+- name: web-api
+  repository: ''
+  version: 0.24.0-rc.1
+digest: sha256:b16540cf47c9ac160245488b830a0267d44b2d3c3fff50610ae2aa4912f25698
+generated: '1970-01-01T00:00:00Z'

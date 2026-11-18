@@ -1,0 +1,108 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-namespace-discovery
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-namespace-discovery
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Namespace }}-prokrust-namespace-discovery}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-application-controller, namespace: {{ .Release.Namespace }}}
+  - {kind: ServiceAccount, name: prokrust-ballista-cluster-controller, namespace: {{ .Release.Namespace }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-namespace-enrollment
+rules:
+  # Namespace membership is dynamic. RBAC cannot scope patch by label.
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-prokrust-namespace-enrollment
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Namespace }}-prokrust-namespace-enrollment}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-application-controller, namespace: {{ .Release.Namespace }}}
+---
+{{- range $name := list "prokrust-application-controller" "prokrust-ballista-cluster-controller" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    resourceNames: [{{ $name }}]
+    verbs: [get, patch, update]
+  {{- if eq $name "prokrust-application-controller" }}
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, delete]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [prokrust-application-controller, prokrust-ballista-cluster-controller]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames:
+      - {{ $.Values.licensing.credentialSecret | quote }}
+      - {{ $.Values.licensing.identitySecret | quote }}
+      - {{ $.Values.licensing.entitlementSecret | quote }}
+      - {{ $.Values.licensing.startup.tlsSecret | quote }}
+      - prokrust-license-challenge
+    verbs: [get]
+  # Create requests cannot be scoped by object name in RBAC.
+  - apiGroups: [""]
+    resources: [secrets, configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ $.Values.licensing.entitlementSecret | quote }}, prokrust-license-challenge]
+    verbs: [patch, delete]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [prokrust-license-ledger, prokrust-license-installation-usage, prokrust-profile-clock]
+    verbs: [get, update]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $name }}}
+subjects:
+  - {kind: ServiceAccount, name: {{ $name }}, namespace: {{ $.Release.Namespace }}}
+---
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-profile-clock-reader
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [prokrust-profile-clock]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-profile-clock-reader
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-profile-clock-reader}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ .Release.Namespace }}}

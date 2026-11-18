@@ -1,0 +1,197 @@
+{{- if .Values.profiling.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prokrust-performance-collector
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-performance-capture-controller
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [create, get, list, watch, delete]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create, get, list, watch, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [prokrust-performance-slots]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-performance-capture-controller
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-performance-capture-controller
+subjects:
+  - kind: ServiceAccount
+    name: prokrust-application-controller
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prokrust-pyroscope
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.profiling.storageClassName }}
+  storageClassName: {{ .Values.profiling.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.profiling.storageSize | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prokrust-pyroscope
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: prokrust-pyroscope, app.kubernetes.io/part-of: prokrust}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: prokrust-pyroscope}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: prokrust-pyroscope, app.kubernetes.io/part-of: prokrust}
+    spec:
+      {{- include "operator.podPlacement" . | nindent 6 }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: pyroscope
+          image: {{ .Values.profiling.backendImage | quote }}
+          imagePullPolicy: IfNotPresent
+          workingDir: /data
+          args:
+            - -architecture.storage=v2
+            # This flag is a host only; the Go server adds the port and IPv6 brackets.
+            - {{ printf "-server.http-listen-address=%s" (ternary "::" "0.0.0.0" (eq (include "operator.networkFamily" .) "IPv6")) | quote }}
+            - -server.http-listen-port=4040
+            # Avoid gRPC SRV discovery for localhost under denied DNS egress.
+            - {{ printf "-query-backend.address=%s:9095" (ternary "[::1]" "127.0.0.1" (eq (include "operator.networkFamily" .) "IPv6")) | quote }}
+            - -storage.backend=filesystem
+            - -storage.filesystem.dir=/data/shared
+            - {{ printf "-retention-period=%dh" (int .Values.profiling.retentionHours) | quote }}
+            - -auth.multitenancy-enabled=true
+            - -self-profiling.disable-push=true
+            - -usage-stats.enabled=false
+            - -distributor.ingestion-rate-limit-mb=2
+            - -distributor.ingestion-burst-size-mb=16
+            - -server.http-read-timeout=30s
+            - -server.http-write-timeout=30s
+            {{- if eq (include "operator.networkFamily" .) "IPv6" }}
+            - "-server.grpc-listen-address=::"
+            - "-memberlist.bind-addr=::"
+            - -ingester.enable-inet6=true
+            - -distributor.ring.instance-enable-ipv6=true
+            - -store-gateway.sharding-ring.instance-enable-ipv6=true
+            - -compactor.ring.instance-enable-ipv6=true
+            - -overrides-exporter.ring.instance-enable-ipv6=true
+            - -query-scheduler.ring.instance-enable-ipv6=true
+            - -query-frontend.instance-enable-ipv6=true
+            - -segment-writer.enable-inet6=true
+            {{- end }}
+          ports: [{name: http, containerPort: 4040}]
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: '1', memory: 1Gi, ephemeral-storage: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          startupProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: prokrust-pyroscope}
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prokrust-pyroscope
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  ipFamilyPolicy: SingleStack
+  ipFamilies: [{{ include "operator.networkFamily" . }}]
+  selector: {app.kubernetes.io/name: prokrust-pyroscope}
+  ports: [{name: http, port: 4040, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-pyroscope-private
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: prokrust-pyroscope}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-application-controller}
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-performance-collector}
+      ports: [{protocol: TCP, port: 4040}]
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-performance-capture-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [prokrust-application-controller, prokrust-performance-collector]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-pyroscope}
+      ports: [{protocol: TCP, port: 4040}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml .Values.global.networkPolicy.dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml .Values.global.networkPolicy.dns.podSelector | nindent 14 }}
+        {{- range (include "operator.dnsServerCIDRs" . | fromJsonArray) }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+{{- end }}
