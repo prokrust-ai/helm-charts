@@ -1,0 +1,16 @@
+{{- $limit := int .Values.producerSemaphore.limit -}}
+{{- if or (lt $limit 1) (gt $limit 16) -}}
+{{- fail "producerSemaphore.limit must be in 1..16" -}}
+{{- end }}
+{{- $managedNamespace := .Release.Namespace }}
+{{ printf "\n---\n" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-producer-semaphore
+  namespace: {{ $managedNamespace }}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+data:
+  limit: {{ $limit | quote }}

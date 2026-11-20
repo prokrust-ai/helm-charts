@@ -1,0 +1,59 @@
+{{- $aws := .Values.global.networkPolicy.awsAuth | default dict -}}
+{{- $root := . -}}
+{{- $local := .Values.awsAuth | default dict -}}
+{{- $hosts := $aws.stsCIDRs | default list -}}
+{{- $networks := $local.stsNetworkCIDRs | default list -}}
+{{- $stsCIDRs := concat $hosts $networks | uniq -}}
+{{- if $aws.enabled -}}
+{{- if gt (len $stsCIDRs) 8 -}}{{ fail "AWS STS egress allows at most eight combined hosts and networks" }}{{- end -}}
+{{- range $cidr := $hosts -}}
+{{- if not (regexMatch "^([0-9.]+/32|[0-9A-Fa-f:]+/128)$" $cidr) -}}{{ fail "AWS STS CIDRs must select exact /32 or /128 hosts" }}{{- end -}}
+{{- end -}}
+{{- range $cidr := $networks -}}
+{{- if not (regexMatch "^([0-9.]+/(2[3-9]|3[0-2])|[0-9A-Fa-f:]+/(5[6-9]|[6-9][0-9]|1[01][0-9]|12[0-8]))$" $cidr) -}}{{ fail "AWS STS networks must be bounded IPv4 /23..32 or IPv6 /56..128 CIDRs" }}{{- end -}}
+{{- end -}}
+{{- range $cidr := $stsCIDRs -}}
+{{- if regexMatch "(?i)^(0\\.|127\\.|169\\.254\\.|fd00:0?ec2:|fe[89ab][0-9a-f]:|ff[0-9a-f]{2}:|(22[4-9]|2[3-4][0-9]|25[0-5])\\.|((0{1,4}:){7}0{0,3}[01]|(0{1,4}(:0{1,4})*)?::(0{1,4}:)*0{0,3}[01]?)/)" $cidr -}}{{ fail "AWS STS CIDRs cannot select local or metadata addresses" }}{{- end -}}
+{{- if regexMatch "(?i)^((0{1,4}(:0{1,4})*)?::(0{1,4}:)*ffff:|(0{1,4}:){5}ffff:)" $cidr -}}{{ fail "AWS STS CIDRs cannot use IPv4-mapped IPv6 addresses" }}{{- end -}}
+{{- if or (and (eq (include "operator.networkFamily" $root) "IPv6") (not (contains ":" $cidr))) (and (eq (include "operator.networkFamily" $root) "IPv4") (contains ":" $cidr)) -}}{{ fail "AWS STS CIDRs must match global.networkFamily" }}{{- end -}}
+{{- end -}}
+{{- $namespace := .Release.Namespace }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-aws-auth
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" $root | nindent 4 }}
+spec:
+  podSelector: {matchLabels: {prokrust.ai/aws-auth: 'true'}}
+  policyTypes: [Egress]
+  {{- if $stsCIDRs }}
+  egress:
+    {{- range $cidr := $stsCIDRs }}
+    - to: [{ipBlock: {cidr: {{ $cidr | quote }}}}]
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+  {{- else }}
+  egress: []
+  {{- end }}
+{{- if $aws.podIdentityAgentEnabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-aws-pod-identity
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" $root | nindent 4 }}
+spec:
+  podSelector: {matchLabels: {prokrust.ai/aws-pod-identity: 'true'}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+      - ipBlock: {cidr: "169.254.170.23/32"}
+      - ipBlock: {cidr: "fd00:ec2::23/128"}
+      ports: [{protocol: TCP, port: 80}]
+{{- end }}
+{{- end }}

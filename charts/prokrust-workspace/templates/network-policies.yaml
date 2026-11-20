@@ -1,0 +1,311 @@
+{{- $root := . -}}
+{{- $systemNamespace := include "operator.installation" . -}}
+{{- $dnsServerCIDRs := include "operator.dnsServerCIDRs" . | fromJsonArray -}}
+{{- $namespace := .Release.Namespace -}}
+{{- $dns := .Values.global.networkPolicy.dns -}}
+{{- $api := .Values.global.networkPolicy.apiServerEndpoints -}}
+{{- $artifact := .Values.global.networkPolicy.artifactStore -}}
+{{- $source := .Values.global.networkPolicy.sourceStore | default dict -}}
+{{- $catalogs := .Values.catalogNetworkPolicy | default dict -}}
+{{- $ballista := .Values.global.networkPolicy.ballista -}}
+{{- $gcp := .Values.global.networkPolicy.gcpAuth | default dict -}}
+{{- if $catalogs.cidrs }}
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-catalog-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      prokrust.ai/catalog-access: "true"
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        {{- range $catalogs.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $catalogs.port }}}
+{{- end }}
+{{- if $gcp.enabled }}
+{{- range $profile := list (dict "name" "workers" "key" "prokrust.ai/gcp-auth" "values" (list "true")) (dict "name" "serving" "key" "app.kubernetes.io/component" "values" (list "model-serving")) }}
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-gcp-{{ $profile.name }}-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" $root | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: {{ $profile.key | quote }}
+        operator: In
+        values: {{ toJson $profile.values }}
+  policyTypes: ["Egress"]
+  egress:
+    {{- range $gcp.metadataEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        {{- range .ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+    {{- if $gcp.googleApiCIDRs }}
+    - to:
+        {{- range $gcp.googleApiCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: 443}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-workflow-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      prokrust.ai/workload: product
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml $dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml $dns.podSelector | nindent 14 }}
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- range $api }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr }}}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+    {{- if or $artifact.cidrs $artifact.podSelector }}
+    - to:
+        {{- range $artifact.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $artifact.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+    {{- end }}
+    {{- if or $source.cidrs $source.podSelector }}
+    - to:
+        {{- range $source.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $source.podSelector }}
+        # A source Pod selector grants access only inside this managed namespace.
+        - podSelector:
+            matchLabels: {{ toYaml $source.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $source.port }}}
+    {{- end }}
+    - to:
+        - podSelector:
+            matchLabels: {{ toYaml $ballista.podSelector | nindent 14 }}
+      ports:
+        {{- range $ballista.ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-ballista-peers
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{ toYaml $ballista.podSelector | nindent 6 }}
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        # A pod selector without a namespace selector admits local peers only.
+        - podSelector:
+            matchLabels: {{ toYaml $ballista.podSelector | nindent 14 }}
+      ports:
+        {{- range $ballista.ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {{ toYaml $ballista.podSelector | nindent 14 }}
+      ports:
+        {{- range $ballista.ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml $dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml $dns.podSelector | nindent 14 }}
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- if or $artifact.cidrs $artifact.podSelector }}
+    - to:
+        {{- range $artifact.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $artifact.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-workflow-to-ballista
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{ toYaml $ballista.podSelector | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              prokrust.ai/workload: product
+      ports:
+        {{- range $ballista.ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+{{- if $artifact.podSelector }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-artifact-store-ingress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{ toYaml $artifact.podSelector | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              prokrust.ai/workload: product
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: model-serving
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $systemNamespace | quote }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-application-controller}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $systemNamespace | quote }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-web-api}
+        - podSelector:
+            matchLabels: {{ toYaml $ballista.podSelector | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+{{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-runtime-startup-egress
+  namespace: {{ $namespace }}
+spec:
+  # Both workflow compute and KServe predictor labels are covered by separate policies below.
+  podSelector: {matchLabels: {prokrust.ai/workload: product}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ $systemNamespace | quote }}}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+      ports: [{protocol: TCP, port: 8444}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-serving-startup-egress
+  namespace: {{ $namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/component: model-serving}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ $systemNamespace | quote }}}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: prokrust-application-controller}}
+      ports: [{protocol: TCP, port: 8444}]
+{{- if and $dnsServerCIDRs .Values.serving.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-serving-configured-dns-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  # Match the immutable serving child policy's exact client set and namespace.
+  podSelector: {matchLabels: {app.kubernetes.io/component: model-serving}}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        {{- range $dnsServerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+{{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-ballista-capacity-inventory
+  namespace: {{ $namespace }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ballista-gate, app.kubernetes.io/component: scheduler}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $systemNamespace | quote }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prokrust-ballista-cluster-controller}
+      ports:
+        - {protocol: TCP, port: 50050}

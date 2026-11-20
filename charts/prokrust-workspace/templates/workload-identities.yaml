@@ -1,0 +1,19 @@
+{{- $accounts := list "prokrust-connection-probe" "prokrust-artifact-store-probe" "prokrust-table-staging" "prokrust-table-materializer" "prokrust-graph-materializer" "prokrust-training-materializer" "prokrust-prediction-materializer" "prokrust-artifact-writer" "prokrust-trainer" "prokrust-batch-predictor" -}}
+{{- if .Values.serving.enabled -}}
+{{- $accounts = append $accounts "prokrust-kserve-runtime" -}}
+{{- end -}}
+{{- range $name := $accounts }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "operator.labels" $ | nindent 4 }}
+automountServiceAccountToken: false
+{{- with $.Values.global.imagePullSecrets }}
+imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

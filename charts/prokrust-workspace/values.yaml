@@ -1,0 +1,120 @@
+supportedSystemVersion: 0.22.0-rc.2
+connectors:
+  enabled: false
+  connectionResources: []
+global:
+  awsRegion: ''
+  networkFamily: IPv4
+  workloadPlacementProfile: standard
+  imagePullSecrets: []
+  dnsServerCIDRs: []
+  networkPolicy:
+    awsAuth:
+      enabled: false
+      stsCIDRs: []
+      podIdentityAgentEnabled: false
+    gcpAuth:
+      enabled: false
+      metadataEndpoints: []
+      googleApiCIDRs: []
+    dns:
+      namespaceSelector:
+        kubernetes.io/metadata.name: kube-system
+      podSelector:
+        k8s-app: kube-dns
+    apiServerEndpoints: []
+    sourceStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    artifactStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    ballista:
+      podSelector:
+        app.kubernetes.io/name: ballista-gate
+      ports:
+      - 50050
+      - 50051
+      - 50052
+    inferenceClientPodSelector:
+      prokrust.ai/inference-client: 'true'
+namespaceResources:
+  resourceQuota:
+    pods: '50'
+    requests.cpu: '16'
+    requests.ephemeral-storage: 32Gi
+    requests.memory: 32Gi
+    limits.cpu: '32'
+    limits.ephemeral-storage: 64Gi
+    limits.memory: 64Gi
+producerSemaphore:
+  limit: 1
+conversionSemaphore:
+  limit: 16
+ballistaController:
+  connectionSecretNames: []
+catalogNetworkPolicy:
+  cidrs: []
+  port: 443
+awsAuth:
+  stsNetworkCIDRs: []
+legacyWorkflowTemplates:
+  enabled: false
+serving:
+  enabled: false
+  componentVersion: 0.11.0-rc.2
+  images:
+    modelServer:
+      repository: ar.prokrust.io/prokrust/model-server
+      digest: sha256:ba1c037ed22ac69cf40f5a5dca590e68c601fd366413f8f175e519cfc2b7cd50
+      pullPolicy: IfNotPresent
+tenantDefaults: []
+licensing:
+  usageReader:
+    enabled: false
+    subjects: []
+installation:
+  namespace: ''
+enrollment:
+  image: docker.io/alpine/kubectl:1.36.4@sha256:a2cd8ee034cbe04d651e565b3373299b31921de5c2af86490559e21b3e197808
+access:
+  serviceAccounts: []
+  bindings: {}
+data-job:
+  componentVersion: 0.13.0-rc.1
+  images:
+    dataJob:
+      repository: ar.prokrust.io/prokrust/data-job
+      digest: sha256:65bfb6fbb828df79a48b9baeca3d721072bd26319135591083b06011e1957581
+      pullPolicy: IfNotPresent
+trainer:
+  componentVersion: 0.11.0-rc.1
+  images:
+    trainer:
+      repository: ar.prokrust.io/prokrust/trainer
+      digest: sha256:6f500c234cc66450e4b7e2a61c4c7f25f5f7f0f0b60d187805a6f2d9386777b7
+      pullPolicy: IfNotPresent
+    trainerCuda:
+      repository: ar.prokrust.io/prokrust/trainer-cuda
+      digest: sha256:7697b034af65d75e9e22ace78e1de2ffe8902257c701b8b511c9f48a1719eac1
+      pullPolicy: IfNotPresent
+batch-predictor:
+  componentVersion: 0.11.0-rc.1
+  images:
+    batchPredictor:
+      repository: ar.prokrust.io/prokrust/batch-predictor
+      digest: sha256:1a84f9abc224c765b8e947b55fe5d6ef38553f5505b0df4d56f87f572a6e1544
+      pullPolicy: IfNotPresent
+ballista:
+  componentVersion: 0.4.0
+  images:
+    ballistaScheduler:
+      repository: ar.prokrust.io/prokrust/ballista-scheduler
+      digest: sha256:ae826346473fb13733701ee740ded8106d78ee43df5018989539fdb440a23645
+      pullPolicy: IfNotPresent
+    ballistaExecutor:
+      repository: ar.prokrust.io/prokrust/ballista-executor
+      digest: sha256:d57e702c0086c2dd9eca8dc37c72c5531eadaed3a656ec3978d2314b9cb7269d
+      pullPolicy: IfNotPresent

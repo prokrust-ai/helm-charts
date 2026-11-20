@@ -1,0 +1,17 @@
+{{- if .Values.legacyWorkflowTemplates.enabled }}
+{{- $root := . -}}
+{{- $managedNamespace := .Release.Namespace }}
+{{- range $path, $_ := $root.Files.Glob "files/resources/workflows/*.yaml" }}
+{{- $object := $root.Files.Get $path | fromYaml }}
+{{- $_ := set $object.metadata "namespace" $managedNamespace }}
+{{- include "operator.startupWorkflow" (dict "object" $object "systemNamespace" $root.Values.installation.namespace) -}}
+{{- $projection := dict "apiVersion" $object.apiVersion "kind" $object.kind "namespace" $managedNamespace "spec" $object.spec }}
+{{- $digest := printf "sha256:%s" (sha256sum (toJson $projection)) }}
+{{- $baseName := regexReplaceAll "-[0-9a-f]{12}$" $object.metadata.name "" }}
+{{- $_ := set $object.metadata "name" (printf "%s-%s" $baseName (trunc 12 (trimPrefix "sha256:" $digest))) }}
+{{- $_ := set $object.metadata.annotations "prokrust.ai/content-digest" $digest }}
+---
+{{ toYaml $object }}
+{{- end }}
+
+{{- end }}

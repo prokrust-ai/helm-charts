@@ -1,0 +1,16 @@
+{{- range $name := list "data-job" "trainer" "batch-predictor" "ballista" }}
+{{- $component := index $.Values $name }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-{{ $name }}-images
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "operator.labels" $ | nindent 4 }}
+data:
+  componentVersion: {{ $component.componentVersion | quote }}
+  {{- range $key, $image := $component.images }}
+  {{ $key }}: {{ include "operator.image" $image | quote }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,59 @@
+{{- $root := . -}}
+
+{{- $seen := dict -}}
+{{- range $entry := .Values.tenantDefaults }}
+{{- $namespace := required "tenantDefaults.namespace is required" $entry.namespace -}}
+{{- if or (ne $namespace $root.Release.Namespace) (hasKey $seen $namespace) -}}
+{{- fail "tenantDefaults namespaces must be unique and match the workspace release namespace" -}}
+{{- end -}}
+{{- $_ := set $seen $namespace true -}}
+{{- $policy := required "tenantDefaults.policy must contain an explicitly reviewed full spec" $entry.policy -}}
+{{- $store := required "tenantDefaults.artifactStore must contain an explicitly reviewed full spec" $entry.artifactStore -}}
+{{- $cluster := required "tenantDefaults.ballistaCluster must contain an explicitly reviewed full spec" $entry.ballistaCluster -}}
+{{- with $cluster.capacity -}}
+{{- if or (not (has (default "AlwaysOn" .mode) (list "AlwaysOn" "OnDemand"))) (lt (int (default 180 .idleTimeoutSeconds)) 30) (gt (int (default 180 .idleTimeoutSeconds)) 86400) -}}
+{{- fail "Ballista capacity requires AlwaysOn or OnDemand and idleTimeoutSeconds between 30 and 86400" -}}
+{{- end -}}
+{{- end -}}
+{{- if or (ne $cluster.artifactStoreRef.name "default") (ne $policy.execution.ballista.clusterName "default") (ne $cluster.release $policy.execution.ballista.release) (ne (int $cluster.maxConcurrentProducers) (int $policy.execution.ballista.maxConcurrentProducers)) (ne (int $cluster.maxConcurrentProducers) (int $root.Values.producerSemaphore.limit)) -}}
+{{- fail "tenantDefaults Ballista policy, default store reference and producer semaphore must agree" -}}
+{{- end -}}
+{{- if or (ne $cluster.schedulerImage $policy.execution.images.ballistaScheduler) (ne $cluster.executorImage $policy.execution.images.ballistaExecutor) -}}
+{{- fail "tenantDefaults Ballista images must exactly match policy images" -}}
+{{- end -}}
+{{- if hasKey $store "connectionRef" -}}
+{{- fail "tenantDefaults ArtifactStore requires inline storage, not connectionRef" -}}
+{{- end -}}
+{{- $storage := required "tenantDefaults ArtifactStore.storage is required" $store.storage -}}
+{{- if or (not (has $storage.backend (list "S3" "GCS"))) (and (eq $storage.backend "S3") (or (empty $storage.s3) (hasKey $storage "gcs"))) (and (eq $storage.backend "GCS") (or (empty $storage.gcs) (hasKey $storage "s3"))) -}}
+{{- fail "tenantDefaults ArtifactStore storage must select exactly one matching S3 or GCS configuration" -}}
+{{- end -}}
+{{- if and (hasKey $store "ballistaAuth") (not (kindIs "invalid" $store.ballistaAuth)) -}}
+{{- $auth := $store.ballistaAuth -}}
+{{- if or (ne $auth.backend $storage.backend) (and (eq $auth.backend "S3") (or (not (kindIs "map" $auth.s3)) (hasKey $auth "gcs"))) (and (eq $auth.backend "GCS") (or (not (kindIs "map" $auth.gcs)) (hasKey $auth "s3"))) -}}
+{{- fail "tenantDefaults ArtifactStore ballistaAuth must match its storage backend" -}}
+{{- end -}}
+{{- end -}}
+{{- range $resource := list (dict "kind" "ProkrustPolicy" "spec" $policy) (dict "kind" "ArtifactStore" "spec" $store) (dict "kind" "BallistaCluster" "spec" $cluster) }}
+{{- $existing := lookup "platform.prokrust.ai/v1beta1" $resource.kind $namespace "default" -}}
+{{- if $existing -}}
+{{- $annotations := default dict $existing.metadata.annotations -}}
+{{- if or (ne (get $annotations "meta.helm.sh/release-name") $root.Release.Name) (ne (get $annotations "meta.helm.sh/release-namespace") $root.Release.Namespace) -}}
+{{- fail "tenantDefaults cannot adopt an existing resource owned outside this Helm release" -}}
+{{- end -}}
+{{- end }}
+---
+apiVersion: platform.prokrust.ai/v1beta1
+kind: {{ $resource.kind }}
+metadata:
+  name: default
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" $root | nindent 4 }}
+  annotations:
+    prokrust.ai/configuration-owner: chart
+    prokrust.ai/workspace-chart: {{ $root.Release.Name | quote }}
+spec:
+{{ toYaml $resource.spec | indent 2 }}
+{{- end }}
+{{- end }}

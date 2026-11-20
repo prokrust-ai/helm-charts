@@ -1,0 +1,42 @@
+{{- $system := include "operator.installation" . -}}
+{{- $access := .Values.access -}}
+{{- range $access.serviceAccounts -}}
+{{- include "operator.humanAccount" . -}}
+{{- end -}}
+{{- if $access.serviceAccounts }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-web-api-broker
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [platform.prokrust.ai]
+    resources: [prokrustaccessbindings]
+    verbs: [list]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: {{ $access.serviceAccounts | toJson }}
+    verbs: [get, impersonate]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-web-api-broker
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-web-api-broker}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ $system }}}
+{{- end }}
+{{- range $name, $binding := $access.bindings }}
+{{- if not (has $binding.serviceAccountRef.name $access.serviceAccounts) -}}
+{{- fail (printf "access.bindings.%s must select an exact access.serviceAccounts entry" $name) -}}
+{{- end }}
+---
+apiVersion: platform.prokrust.ai/v1beta1
+kind: ProkrustAccessBinding
+metadata:
+  name: {{ $name | quote }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+{{ toYaml $binding | indent 2 }}
+{{- end }}

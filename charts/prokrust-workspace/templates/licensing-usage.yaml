@@ -1,0 +1,43 @@
+{{- if .Values.licensing.usageReader.enabled -}}
+{{- if not .Values.licensing.usageReader.subjects -}}
+{{- fail "licensing.usageReader.enabled requires explicit subjects" -}}
+{{- end -}}
+{{- $root := . -}}
+{{- $namespace := .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-license-usage-reader
+  namespace: {{ $namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["prokrust-license-usage"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-license-usage-reader
+  namespace: {{ $namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-license-usage-reader
+subjects:
+  {{- range $root.Values.licensing.usageReader.subjects }}
+  {{- if eq .kind "ServiceAccount" }}
+  - kind: ServiceAccount
+    name: {{ .name | quote }}
+    namespace: {{ required "usage reader ServiceAccount subjects require explicit namespace" .namespace | quote }}
+  {{- else }}
+  {{- if .namespace }}
+  {{- fail "usage reader User/Group subjects must not set namespace" }}
+  {{- end }}
+  - kind: {{ .kind }}
+    apiGroup: rbac.authorization.k8s.io
+    name: {{ .name | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,448 @@
+{{- $systemNamespace := include "operator.installation" . -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+      ephemeral-storage: 1Gi
+    default:
+      cpu: '2'
+      memory: 2Gi
+      ephemeral-storage: 8Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-bounds
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+spec:
+  hard:
+{{ toYaml .Values.namespaceResources.resourceQuota | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prokrust-workflow-executor
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: false
+{{- with $.Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{ toYaml . | nindent 2 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-application-controller
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [platform.prokrust.ai]
+  resources: [prokrustpolicies, artifactstores, ballistaclusters]
+  verbs: [get, list, watch]
+- apiGroups: [data.prokrust.ai]
+  resources: [tables, graphs, tablesnapshots, snapshotbuilds, snapshotpreparations, graphsnapshots]
+  verbs: [get, list, watch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [predictionqueries, trainingruns, trainingstudies, predictionruns, inferenceendpoints, models]
+  verbs: [get, list, watch]
+- apiGroups: [data.prokrust.ai]
+  resources: [tableprofiles]
+  verbs: [get, list, watch, patch, delete]
+- apiGroups: [platform.prokrust.ai]
+  resources: [performancecaptures]
+  verbs: [get, list, watch, patch, delete]
+- apiGroups: [data.prokrust.ai]
+  resources: [tableprofiles/status, snapshotbuilds/status]
+  verbs: [get, patch, update]
+- apiGroups: [platform.prokrust.ai]
+  resources: [performancecaptures/status]
+  verbs: [get, patch, update]
+- apiGroups: [""]
+  resources: ["limitranges"]
+  verbs: ["get", "list"]
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  resourceNames:
+  - prokrust-workflow-executor
+  verbs:
+  - bind
+- apiGroups: [data.prokrust.ai]
+  resources: [tablesnapshots, snapshotbuilds, snapshotpreparations, graphsnapshots]
+  verbs: [patch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [trainingruns, trainingstudies, predictionruns, inferenceendpoints]
+  verbs: [patch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [inferenceendpoints, predictionruns]
+  verbs: [delete]
+- apiGroups: [platform.prokrust.ai]
+  resources: [prokrustpolicies/status, artifactstores/status]
+  verbs: [patch]
+- apiGroups: [data.prokrust.ai]
+  resources: [tables/status, graphs/status, tablesnapshots/status, snapshotbuilds/status, snapshotpreparations/status, graphsnapshots/status]
+  verbs: [patch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [predictionqueries/status, trainingruns/status, trainingstudies/status, predictionruns/status, inferenceendpoints/status, models/status]
+  verbs: [patch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [trainingruns]
+  verbs: [create, delete]
+- apiGroups: [ml.prokrust.ai]
+  resources: [models]
+  verbs: [create]
+- apiGroups: [data.prokrust.ai]
+  resources: [tablesnapshots, graphsnapshots, snapshotbuilds]
+  verbs: [create]
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflows
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+{{- if .Values.legacyWorkflowTemplates.enabled }}
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflowtemplates
+  resourceNames:
+{{ include "operator.workflowNames" (merge (dict "StartupSystemNamespace" $systemNamespace) .) | indent 2 }}
+  verbs:
+  - get
+{{- end }}
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get"]
+{{- if .Values.serving.enabled }}
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - servingruntimes
+  verbs:
+  - get
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - inferenceservices
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+{{- end }}
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  resourceNames:
+  - prokrust-producer-semaphore
+  - prokrust-conversion-semaphore
+  verbs:
+  - get
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "create", "patch", "delete"]
+# Frozen Workflow plans and federation projections have dynamic names.
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["prokrust-ballista-capacity"]
+  verbs: ["get", "update"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["prokrust-runtime-startup-ca", "prokrust-license-usage"]
+  verbs: ["update", "delete"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["prokrust-conversion-semaphore"]
+  verbs: ["update"]
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-application-controller
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-application-controller
+subjects:
+- kind: ServiceAccount
+  name: prokrust-application-controller
+  namespace: {{ $systemNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-ballista-cluster-controller
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+rules:
+{{- with .Values.ballistaController.connectionSecretNames }}
+# Retained connector qualification checks Secret UID/resourceVersion. Kubernetes
+# RBAC cannot limit get to metadata, so grant only explicitly configured names.
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames:
+{{ toYaml . | indent 2 }}
+  verbs: ["get"]
+{{- end }}
+# Reconciliation freezes federation configuration against the actual tenant KSA.
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["prokrust-ballista-capacity"]
+  verbs: ["get", "update"]
+- apiGroups: [platform.prokrust.ai]
+  resources: [prokrustpolicies, artifactstores, ballistaclusters]
+  verbs: [get, list, watch]
+- apiGroups: [data.prokrust.ai]
+  resources: [snapshotbuilds, tableprofiles]
+  verbs: [get, list, watch]
+- apiGroups: [ml.prokrust.ai]
+  resources: [trainingruns, predictionruns]
+  verbs: [get, list, watch]
+- apiGroups: [platform.prokrust.ai]
+  resources: [ballistaclusters/status]
+  verbs: [patch]
+- apiGroups: [argoproj.io]
+  resources: [workflows]
+  verbs: [get, list]
+- apiGroups: [apps]
+  resources: [deployments]
+  resourceNames: [ballista-scheduler, ballista-executor]
+  verbs: [get, patch]
+- apiGroups: [apps]
+  resources: [deployments]
+  verbs: [create, list, watch]
+- apiGroups:
+  - ''
+  resources:
+  - services
+  resourceNames:
+  - ballista-scheduler
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - ''
+  resources:
+  - services
+  verbs:
+  - create
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  resourceNames:
+  - prokrust-producer-semaphore
+  verbs:
+  - get
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-ballista-cluster-controller
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-ballista-cluster-controller
+subjects:
+- kind: ServiceAccount
+  name: prokrust-ballista-cluster-controller
+  namespace: {{ $systemNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-workflow-executor
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflowtaskresults
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-workflow-executor
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prokrust-workflow-executor
+subjects:
+- kind: ServiceAccount
+  name: prokrust-workflow-executor
+- kind: ServiceAccount
+  name: prokrust-table-staging
+- kind: ServiceAccount
+  name: prokrust-table-materializer
+- kind: ServiceAccount
+  name: prokrust-graph-materializer
+- kind: ServiceAccount
+  name: prokrust-training-materializer
+- kind: ServiceAccount
+  name: prokrust-prediction-materializer
+- kind: ServiceAccount
+  name: prokrust-artifact-writer
+- kind: ServiceAccount
+  name: prokrust-trainer
+- kind: ServiceAccount
+  name: prokrust-batch-predictor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-profile-broker
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [data.prokrust.ai]
+    resources: [tableprofiles]
+    verbs: [get, list, create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-profile-broker
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-profile-broker}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ $systemNamespace }}}

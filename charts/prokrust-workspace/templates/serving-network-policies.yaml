@@ -1,0 +1,57 @@
+{{- if .Values.serving.enabled -}}
+{{- $namespace := .Release.Namespace -}}
+{{- $dns := .Values.global.networkPolicy.dns -}}
+{{- $artifact := .Values.global.networkPolicy.artifactStore -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-serving-egress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: model-serving
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ toYaml $dns.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels: {{ toYaml $dns.podSelector | nindent 14 }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- if or $artifact.cidrs $artifact.podSelector }}
+    - to:
+        {{- range $artifact.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if $artifact.podSelector }}
+        - podSelector:
+            matchLabels: {{ toYaml $artifact.podSelector | nindent 14 }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ $artifact.port }}}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-serving-ingress
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: model-serving
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {{ toYaml .Values.global.networkPolicy.inferenceClientPodSelector | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: 8080}
+{{- end }}

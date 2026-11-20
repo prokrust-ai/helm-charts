@@ -1,0 +1,37 @@
+{{- $gcp := .Values.global.networkPolicy.gcpAuth -}}
+{{- if and $gcp.enabled (or $gcp.metadataEndpoints $gcp.googleApiCIDRs) -}}
+{{- $profiles := list (dict "name" "ballista" "selector" (dict "app.kubernetes.io/name" "ballista-gate")) -}}
+{{- if .Values.serving.enabled -}}
+{{- $profiles = append $profiles (dict "name" "serving" "selector" (dict "app.kubernetes.io/component" "model-serving")) -}}
+{{- end -}}
+{{- range $profile := $profiles }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-{{ $profile.name }}-gcp-auth-egress
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "operator.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{ toYaml $profile.selector | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    {{- range $gcp.metadataEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        {{- range .ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+    {{- if $gcp.googleApiCIDRs }}
+    - to:
+        {{- range $gcp.googleApiCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+{{- end }}
+{{- end }}

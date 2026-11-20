@@ -1,0 +1,109 @@
+{{- if .Values.connectors.enabled }}
+{{- $system := include "operator.installation" . }}
+{{- $namespaceReader := printf "%s-prokrust-web-ns-%s" $system (sha256sum .Release.Namespace | trunc 16) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $namespaceReader }}
+rules:
+  # Connector operations verify both admitted workspace and installation UIDs.
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: {{ list .Release.Namespace $system | uniq | sortAlpha | toJson }}
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $namespaceReader }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ $namespaceReader }}}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ $system }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-connector-provisioning
+  namespace: {{ .Release.Namespace }}
+rules:
+  {{- range .Values.connectors.connectionResources }}
+  - apiGroups: [{{ .apiGroup | quote }}]
+    resources: [{{ .resource | quote }}]
+    verbs: [get, list]
+  {{- end }}
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, create, update, delete]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [update]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-connector-provisioning
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-connector-provisioning}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-application-controller, namespace: {{ $system }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-connector-web-runtime
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [prokrust-connector-planner-tls]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [services, pods]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets]
+    verbs: [get]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-connector-web-runtime
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-connector-web-runtime}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ $system }}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-connector-executor-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ballista-gate
+      app.kubernetes.io/component: executor
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - {key: prokrust.ai/connector-uid, operator: Exists}
+      ports:
+        - {protocol: TCP, port: 8443}
+{{- end }}

@@ -1,0 +1,16 @@
+{{- $limit := int .Values.conversionSemaphore.limit -}}
+{{- if or (lt $limit 1) (gt $limit 128) -}}
+{{- fail "conversionSemaphore.limit must be in 1..128" -}}
+{{- end }}
+{{- $managedNamespace := .Release.Namespace }}
+{{ printf "\n---\n" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-conversion-semaphore
+  namespace: {{ $managedNamespace }}
+  labels:
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+data:
+  limit: {{ $limit | quote }}

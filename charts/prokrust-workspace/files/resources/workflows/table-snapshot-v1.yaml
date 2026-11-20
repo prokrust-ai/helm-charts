@@ -1,0 +1,611 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: prokrust-table-snapshot-v1-71ed98bf04b5
+  namespace: prokrust-dev
+  labels:
+    app.kubernetes.io/name: prokrust
+    prokrust.ai/contract: table-snapshot-v1
+    app.kubernetes.io/part-of: prokrust
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    prokrust.ai/immutable: 'true'
+    prokrust.ai/content-digest: sha256:71ed98bf04b574a8fc157e92829155260d478ccb0d22b50085ed35348d32427c
+spec:
+  entrypoint: pipeline
+  onExit: exit-handler
+  serviceAccountName: prokrust-workflow-executor
+  automountServiceAccountToken: true
+  podSpecPatch: '{"automountServiceAccountToken":true,"containers":[{"name":"main","resources":{{workflow.parameters.resources-json}}}]}'
+  podMetadata:
+    labels:
+      prokrust.ai/workload: product
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  synchronization:
+    semaphores:
+    - configMapKeyRef:
+        name: prokrust-producer-semaphore
+        key: limit
+  activeDeadlineSeconds: 14400
+  parallelism: 2
+  archiveLogs: false
+  podGC:
+    strategy: OnWorkflowCompletion
+    deleteDelayDuration: 10m
+  arguments:
+    parameters:
+    - name: owner-kind
+    - name: owner-name
+    - name: owner-uid
+    - name: execution-key
+    - name: input-uri
+    - name: input-digest
+    - name: recovery-ordinal
+    - name: artifact-attempt-root
+    - name: source-auth-mode
+    - name: source-credential-secret-name
+    - name: source-access-key-id-key
+    - name: source-secret-access-key-key
+    - name: source-session-token-secret-name
+    - name: source-session-token-key
+    - name: artifact-auth-mode
+    - name: artifact-credential-secret-name
+    - name: artifact-access-key-id-key
+    - name: artifact-secret-access-key-key
+    - name: artifact-session-token-secret-name
+    - name: artifact-session-token-key
+    - name: artifact-endpoint
+    - name: artifact-region
+    - name: artifact-force-path-style
+    - name: policy-uid
+    - name: policy-generation
+    - name: policy-digest
+    - name: release-lock-uri
+    - name: release-lock-digest
+    - name: ballista-cluster-name
+    - name: ballista-cluster-uid
+    - name: ballista-cluster-generation
+    - name: ballista-cluster-release
+    - name: data-job-image
+    - name: resources-json
+  templates:
+  - name: pipeline
+    failFast: true
+    dag:
+      tasks:
+      - name: resolve
+        template: source-step
+        arguments:
+          parameters:
+          - name: operation
+            value: resolve-source
+          - name: input-uri
+            value: "{{workflow.parameters.input-uri}}"
+          - name: input-digest
+            value: "{{workflow.parameters.input-digest}}"
+      - name: stage
+        depends: resolve.Succeeded
+        template: source-step
+        arguments:
+          parameters:
+          - name: operation
+            value: stage-source
+          - name: input-uri
+            value: "{{tasks.resolve.outputs.parameters.artifact-uri}}"
+          - name: input-digest
+            value: "{{tasks.resolve.outputs.parameters.artifact-digest}}"
+      - name: inspect
+        depends: stage.Succeeded
+        template: artifact-step
+        arguments:
+          parameters:
+          - name: operation
+            value: inspect-parquet
+          - name: input-uri
+            value: "{{tasks.stage.outputs.parameters.artifact-uri}}"
+          - name: input-digest
+            value: "{{tasks.stage.outputs.parameters.artifact-digest}}"
+      - name: materialize
+        depends: inspect.Succeeded
+        template: materializer-step
+        arguments:
+          parameters:
+          - name: operation
+            value: materialize-table
+          - name: input-uri
+            value: "{{tasks.inspect.outputs.parameters.artifact-uri}}"
+          - name: input-digest
+            value: "{{tasks.inspect.outputs.parameters.artifact-digest}}"
+      - name: verify
+        depends: materialize.Succeeded
+        template: artifact-step
+        arguments:
+          parameters:
+          - name: operation
+            value: verify-table
+          - name: input-uri
+            value: "{{tasks.materialize.outputs.parameters.artifact-uri}}"
+          - name: input-digest
+            value: "{{tasks.materialize.outputs.parameters.artifact-digest}}"
+      - name: candidate
+        depends: verify.Succeeded
+        template: candidate-step
+        arguments:
+          parameters:
+          - name: operation
+            value: write-table-candidate
+          - name: input-uri
+            value: "{{tasks.verify.outputs.parameters.artifact-uri}}"
+          - name: input-digest
+            value: "{{tasks.verify.outputs.parameters.artifact-digest}}"
+    outputs:
+      parameters:
+      - name: artifact-uri
+        valueFrom:
+          parameter: "{{tasks.candidate.outputs.parameters.artifact-uri}}"
+        globalName: artifact-uri
+      - name: artifact-digest
+        valueFrom:
+          parameter: "{{tasks.candidate.outputs.parameters.artifact-digest}}"
+        globalName: artifact-digest
+  - name: source-step
+    serviceAccountName: prokrust-table-staging
+    activeDeadlineSeconds: 3600
+    inputs:
+      parameters:
+      - name: operation
+      - name: input-uri
+      - name: input-digest
+    outputs: &1
+      parameters:
+      - name: artifact-uri
+        valueFrom:
+          path: "/var/run/prokrust/outputs/step-artifact-uri"
+      - name: artifact-digest
+        valueFrom:
+          path: "/var/run/prokrust/outputs/step-artifact-digest"
+    retryStrategy: &2
+      limit: '2'
+      retryPolicy: Always
+      expression: asInt(lastRetry.exitCode) == 30 || asInt(lastRetry.exitCode) ==
+        31
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+    volumes:
+    - &3
+      name: artifact-credentials
+      secret:
+        secretName: "{{workflow.parameters.artifact-credential-secret-name}}"
+        defaultMode: 288
+    - name: source-credentials
+      secret:
+        secretName: "{{workflow.parameters.source-credential-secret-name}}"
+        defaultMode: 288
+    container:
+      image: "{{workflow.parameters.data-job-image}}"
+      imagePullPolicy: IfNotPresent
+      command:
+      - "/usr/local/bin/prokrust-data-job"
+      args:
+      - workflow-step
+      - "--operation"
+      - "{{inputs.parameters.operation}}"
+      - "--producer-step"
+      - "{{inputs.parameters.operation}}"
+      - "--retry-ordinal"
+      - "{{retries}}"
+      - "--owner-kind"
+      - "{{workflow.parameters.owner-kind}}"
+      - "--owner-name"
+      - "{{workflow.parameters.owner-name}}"
+      - "--owner-uid"
+      - "{{workflow.parameters.owner-uid}}"
+      - "--workflow-uid"
+      - "{{workflow.uid}}"
+      - "--execution-key"
+      - "{{workflow.parameters.execution-key}}"
+      - "--recovery-ordinal"
+      - "{{workflow.parameters.recovery-ordinal}}"
+      - "--input-uri"
+      - "{{inputs.parameters.input-uri}}"
+      - "--input-digest"
+      - "{{inputs.parameters.input-digest}}"
+      - "--artifact-attempt-root"
+      - "{{workflow.parameters.artifact-attempt-root}}"
+      - "--policy-uid"
+      - "{{workflow.parameters.policy-uid}}"
+      - "--policy-generation"
+      - "{{workflow.parameters.policy-generation}}"
+      - "--policy-digest"
+      - "{{workflow.parameters.policy-digest}}"
+      - "--release-lock-uri"
+      - "{{workflow.parameters.release-lock-uri}}"
+      - "--release-lock-digest"
+      - "{{workflow.parameters.release-lock-digest}}"
+      - "--ballista-cluster"
+      - "{{workflow.parameters.ballista-cluster-name}}"
+      - "--ballista-cluster-uid"
+      - "{{workflow.parameters.ballista-cluster-uid}}"
+      - "--ballista-cluster-generation"
+      - "{{workflow.parameters.ballista-cluster-generation}}"
+      - "--ballista-cluster-release"
+      - "{{workflow.parameters.ballista-cluster-release}}"
+      - "--step-result-path"
+      - "/var/run/prokrust/outputs/step-result.json"
+      env:
+      - name: RP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: RP_WORKFLOW_NAME
+        value: "{{workflow.name}}"
+      - name: RP_SOURCE_AUTH_MODE
+        value: "{{workflow.parameters.source-auth-mode}}"
+      - name: RP_SOURCE_ACCESS_KEY_ID_FILE
+        value: "/var/run/prokrust/credentials/source/{{workflow.parameters.source-access-key-id-key}}"
+      - name: RP_SOURCE_SECRET_ACCESS_KEY_FILE
+        value: "/var/run/prokrust/credentials/source/{{workflow.parameters.source-secret-access-key-key}}"
+      - name: RP_SOURCE_SESSION_TOKEN_FILE
+        value: "/var/run/prokrust/credentials/source/{{workflow.parameters.source-session-token-key}}"
+      - name: RP_ARTIFACT_AUTH_MODE
+        value: "{{workflow.parameters.artifact-auth-mode}}"
+      - name: RP_ARTIFACT_ACCESS_KEY_ID_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-access-key-id-key}}"
+      - name: RP_ARTIFACT_SECRET_ACCESS_KEY_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-secret-access-key-key}}"
+      - name: RP_ARTIFACT_SESSION_TOKEN_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-session-token-key}}"
+      - name: RP_ARTIFACT_ENDPOINT
+        value: "{{workflow.parameters.artifact-endpoint}}"
+      - name: RP_ARTIFACT_REGION
+        value: "{{workflow.parameters.artifact-region}}"
+      - name: RP_ARTIFACT_FORCE_PATH_STYLE
+        value: "{{workflow.parameters.artifact-force-path-style}}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+      - name: work
+        mountPath: "/var/run/prokrust"
+      - name: source-credentials
+        mountPath: "/var/run/prokrust/credentials/source"
+        readOnly: true
+      - name: artifact-credentials
+        mountPath: "/var/run/prokrust/credentials/artifact"
+        readOnly: true
+  - name: materializer-step
+    serviceAccountName: prokrust-table-materializer
+    activeDeadlineSeconds: 7200
+    inputs:
+      parameters:
+      - name: operation
+      - name: input-uri
+      - name: input-digest
+    outputs: *1
+    retryStrategy: *2
+    volumes:
+    - *3
+    container:
+      image: "{{workflow.parameters.data-job-image}}"
+      imagePullPolicy: IfNotPresent
+      command:
+      - "/usr/local/bin/prokrust-data-job"
+      args:
+      - workflow-step
+      - "--operation"
+      - "{{inputs.parameters.operation}}"
+      - "--producer-step"
+      - "{{inputs.parameters.operation}}"
+      - "--retry-ordinal"
+      - "{{retries}}"
+      - "--owner-kind"
+      - "{{workflow.parameters.owner-kind}}"
+      - "--owner-name"
+      - "{{workflow.parameters.owner-name}}"
+      - "--owner-uid"
+      - "{{workflow.parameters.owner-uid}}"
+      - "--workflow-uid"
+      - "{{workflow.uid}}"
+      - "--execution-key"
+      - "{{workflow.parameters.execution-key}}"
+      - "--recovery-ordinal"
+      - "{{workflow.parameters.recovery-ordinal}}"
+      - "--input-uri"
+      - "{{inputs.parameters.input-uri}}"
+      - "--input-digest"
+      - "{{inputs.parameters.input-digest}}"
+      - "--artifact-attempt-root"
+      - "{{workflow.parameters.artifact-attempt-root}}"
+      - "--policy-uid"
+      - "{{workflow.parameters.policy-uid}}"
+      - "--policy-generation"
+      - "{{workflow.parameters.policy-generation}}"
+      - "--policy-digest"
+      - "{{workflow.parameters.policy-digest}}"
+      - "--release-lock-uri"
+      - "{{workflow.parameters.release-lock-uri}}"
+      - "--release-lock-digest"
+      - "{{workflow.parameters.release-lock-digest}}"
+      - "--ballista-cluster"
+      - "{{workflow.parameters.ballista-cluster-name}}"
+      - "--ballista-cluster-uid"
+      - "{{workflow.parameters.ballista-cluster-uid}}"
+      - "--ballista-cluster-generation"
+      - "{{workflow.parameters.ballista-cluster-generation}}"
+      - "--ballista-cluster-release"
+      - "{{workflow.parameters.ballista-cluster-release}}"
+      - "--step-result-path"
+      - "/var/run/prokrust/outputs/step-result.json"
+      env:
+      - name: RP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: RP_WORKFLOW_NAME
+        value: "{{workflow.name}}"
+      - name: RP_ARTIFACT_AUTH_MODE
+        value: "{{workflow.parameters.artifact-auth-mode}}"
+      - name: RP_ARTIFACT_ACCESS_KEY_ID_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-access-key-id-key}}"
+      - name: RP_ARTIFACT_SECRET_ACCESS_KEY_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-secret-access-key-key}}"
+      - name: RP_ARTIFACT_SESSION_TOKEN_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-session-token-key}}"
+      - name: RP_ARTIFACT_ENDPOINT
+        value: "{{workflow.parameters.artifact-endpoint}}"
+      - name: RP_ARTIFACT_REGION
+        value: "{{workflow.parameters.artifact-region}}"
+      - name: RP_ARTIFACT_FORCE_PATH_STYLE
+        value: "{{workflow.parameters.artifact-force-path-style}}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+      - name: work
+        mountPath: "/var/run/prokrust"
+      - name: artifact-credentials
+        mountPath: "/var/run/prokrust/credentials/artifact"
+        readOnly: true
+  - name: artifact-step
+    serviceAccountName: prokrust-artifact-writer
+    activeDeadlineSeconds: 3600
+    inputs:
+      parameters:
+      - name: operation
+      - name: input-uri
+      - name: input-digest
+    outputs: *1
+    retryStrategy: *2
+    volumes:
+    - *3
+    container: &4
+      image: "{{workflow.parameters.data-job-image}}"
+      imagePullPolicy: IfNotPresent
+      command:
+      - "/usr/local/bin/prokrust-data-job"
+      args:
+      - workflow-step
+      - "--operation"
+      - "{{inputs.parameters.operation}}"
+      - "--producer-step"
+      - "{{inputs.parameters.operation}}"
+      - "--retry-ordinal"
+      - "{{retries}}"
+      - "--owner-kind"
+      - "{{workflow.parameters.owner-kind}}"
+      - "--owner-name"
+      - "{{workflow.parameters.owner-name}}"
+      - "--owner-uid"
+      - "{{workflow.parameters.owner-uid}}"
+      - "--workflow-uid"
+      - "{{workflow.uid}}"
+      - "--execution-key"
+      - "{{workflow.parameters.execution-key}}"
+      - "--recovery-ordinal"
+      - "{{workflow.parameters.recovery-ordinal}}"
+      - "--input-uri"
+      - "{{inputs.parameters.input-uri}}"
+      - "--input-digest"
+      - "{{inputs.parameters.input-digest}}"
+      - "--artifact-attempt-root"
+      - "{{workflow.parameters.artifact-attempt-root}}"
+      - "--policy-uid"
+      - "{{workflow.parameters.policy-uid}}"
+      - "--policy-generation"
+      - "{{workflow.parameters.policy-generation}}"
+      - "--policy-digest"
+      - "{{workflow.parameters.policy-digest}}"
+      - "--release-lock-uri"
+      - "{{workflow.parameters.release-lock-uri}}"
+      - "--release-lock-digest"
+      - "{{workflow.parameters.release-lock-digest}}"
+      - "--ballista-cluster"
+      - "{{workflow.parameters.ballista-cluster-name}}"
+      - "--ballista-cluster-uid"
+      - "{{workflow.parameters.ballista-cluster-uid}}"
+      - "--ballista-cluster-generation"
+      - "{{workflow.parameters.ballista-cluster-generation}}"
+      - "--ballista-cluster-release"
+      - "{{workflow.parameters.ballista-cluster-release}}"
+      - "--step-result-path"
+      - "/var/run/prokrust/outputs/step-result.json"
+      env:
+      - name: RP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: RP_WORKFLOW_NAME
+        value: "{{workflow.name}}"
+      - name: RP_ARTIFACT_AUTH_MODE
+        value: "{{workflow.parameters.artifact-auth-mode}}"
+      - name: RP_ARTIFACT_ACCESS_KEY_ID_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-access-key-id-key}}"
+      - name: RP_ARTIFACT_SECRET_ACCESS_KEY_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-secret-access-key-key}}"
+      - name: RP_ARTIFACT_SESSION_TOKEN_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-session-token-key}}"
+      - name: RP_ARTIFACT_ENDPOINT
+        value: "{{workflow.parameters.artifact-endpoint}}"
+      - name: RP_ARTIFACT_REGION
+        value: "{{workflow.parameters.artifact-region}}"
+      - name: RP_ARTIFACT_FORCE_PATH_STYLE
+        value: "{{workflow.parameters.artifact-force-path-style}}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+      - name: work
+        mountPath: "/var/run/prokrust"
+      - name: artifact-credentials
+        mountPath: "/var/run/prokrust/credentials/artifact"
+        readOnly: true
+  - name: candidate-step
+    serviceAccountName: prokrust-artifact-writer
+    activeDeadlineSeconds: 3600
+    inputs:
+      parameters:
+      - name: operation
+      - name: input-uri
+      - name: input-digest
+    retryStrategy: *2
+    outputs:
+      parameters:
+      - name: artifact-uri
+        valueFrom:
+          path: "/var/run/prokrust/outputs/artifact-uri"
+      - name: artifact-digest
+        valueFrom:
+          path: "/var/run/prokrust/outputs/artifact-digest"
+    volumes:
+    - *3
+    container: *4
+  - name: exit-handler
+    serviceAccountName: prokrust-table-materializer
+    activeDeadlineSeconds: 600
+    volumes:
+    - *3
+    container:
+      image: "{{workflow.parameters.data-job-image}}"
+      imagePullPolicy: IfNotPresent
+      command:
+      - "/usr/local/bin/prokrust-data-job"
+      args:
+      - attempt-exit
+      - "--producer-step"
+      - attempt-exit
+      - "--retry-ordinal"
+      - '0'
+      - "--workflow-phase"
+      - "{{workflow.status}}"
+      - "--owner-kind"
+      - "{{workflow.parameters.owner-kind}}"
+      - "--owner-name"
+      - "{{workflow.parameters.owner-name}}"
+      - "--owner-uid"
+      - "{{workflow.parameters.owner-uid}}"
+      - "--workflow-uid"
+      - "{{workflow.uid}}"
+      - "--execution-key"
+      - "{{workflow.parameters.execution-key}}"
+      - "--recovery-ordinal"
+      - "{{workflow.parameters.recovery-ordinal}}"
+      - "--input-uri"
+      - "{{workflow.parameters.input-uri}}"
+      - "--input-digest"
+      - "{{workflow.parameters.input-digest}}"
+      - "--artifact-attempt-root"
+      - "{{workflow.parameters.artifact-attempt-root}}"
+      - "--policy-uid"
+      - "{{workflow.parameters.policy-uid}}"
+      - "--policy-generation"
+      - "{{workflow.parameters.policy-generation}}"
+      - "--policy-digest"
+      - "{{workflow.parameters.policy-digest}}"
+      - "--release-lock-uri"
+      - "{{workflow.parameters.release-lock-uri}}"
+      - "--release-lock-digest"
+      - "{{workflow.parameters.release-lock-digest}}"
+      - "--ballista-cluster"
+      - "{{workflow.parameters.ballista-cluster-name}}"
+      - "--ballista-cluster-uid"
+      - "{{workflow.parameters.ballista-cluster-uid}}"
+      - "--ballista-cluster-generation"
+      - "{{workflow.parameters.ballista-cluster-generation}}"
+      - "--ballista-cluster-release"
+      - "{{workflow.parameters.ballista-cluster-release}}"
+      - "--step-result-path"
+      - "/var/run/prokrust/outputs/step-result.json"
+      env:
+      - name: RP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: RP_WORKFLOW_NAME
+        value: "{{workflow.name}}"
+      - name: RP_ARTIFACT_AUTH_MODE
+        value: "{{workflow.parameters.artifact-auth-mode}}"
+      - name: RP_ARTIFACT_ACCESS_KEY_ID_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-access-key-id-key}}"
+      - name: RP_ARTIFACT_SECRET_ACCESS_KEY_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-secret-access-key-key}}"
+      - name: RP_ARTIFACT_SESSION_TOKEN_FILE
+        value: "/var/run/prokrust/credentials/artifact/{{workflow.parameters.artifact-session-token-key}}"
+      - name: RP_ARTIFACT_ENDPOINT
+        value: "{{workflow.parameters.artifact-endpoint}}"
+      - name: RP_ARTIFACT_REGION
+        value: "{{workflow.parameters.artifact-region}}"
+      - name: RP_ARTIFACT_FORCE_PATH_STYLE
+        value: "{{workflow.parameters.artifact-force-path-style}}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+      - name: work
+        mountPath: "/var/run/prokrust"
+      - name: artifact-credentials
+        mountPath: "/var/run/prokrust/credentials/artifact"
+        readOnly: true
+  volumes:
+  - name: work
+    emptyDir: {}
