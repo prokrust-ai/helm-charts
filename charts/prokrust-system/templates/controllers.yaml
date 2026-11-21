@@ -92,8 +92,6 @@ spec:
               value: {{ include "operator.placementProfile" . | quote }}
             - name: PROKRUST_WORKFLOW_IMAGE_PULL_SECRETS
               value: {{ include "operator.imagePullSecrets" . | quote }}
-            - name: PROKRUST_ARGO_EXECUTOR_IMAGE
-              value: {{ required "licensing.argoExecutorImage must match the platform's exact pinned Argo executor image" .Values.licensing.argoExecutorImage | quote }}
             - name: RP_POD_NAMESPACE
               valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
             - name: RP_POD_NAME

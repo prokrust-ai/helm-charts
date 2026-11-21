@@ -56,7 +56,7 @@ global:
 images:
   operator:
     repository: ar.prokrust.io/prokrust/operator
-    digest: sha256:ec6347ce0adc30524bdd67f2f378f0c05d28e905b1e80f453dc57eefb345ae5e
+    digest: sha256:f0600f2a0552970b788327760f5841688d142d08574edc499b71eb9c02195e8c
     pullPolicy: IfNotPresent
 controllers:
   applicationReplicas: 1
@@ -115,7 +115,6 @@ components:
     version: 0.4.0
     chartVersion: 0.4.0
 licensing:
-  argoExecutorImage: ar.prokrust.io/prokrust/argoexec@sha256:bfd67ca65831d95d1e0b59ecf986c2679036411911e06c947e61a9267cedf1bf
   serverURL: https://license.prokrust.ai
   credentialSecret: prokrust-license-credential
   identitySecret: prokrust-installation-identity
