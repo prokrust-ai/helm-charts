@@ -1,7 +1,8 @@
 # Prokrust workspace
 
-Install once per workload namespace after the `prokrust-system` version recorded
-in this chart's `supportedSystemVersion` value. Workspace chart versions are independent.
+Install once per workload namespace after installing `prokrust-system`.
+`supportedSystemVersion` records the system release used to verify this chart.
+Enrollment requires an installed system with a recorded release.
 Controllers run centrally in the system namespace. This chart directly owns
 workspace ServiceAccounts, image references, quotas, network policies and optional
 ServingRuntime resources; it has no child chart dependencies.

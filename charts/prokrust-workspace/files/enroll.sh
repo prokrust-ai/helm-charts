@@ -35,8 +35,8 @@ installed="$(kubectl --request-timeout=10s -n "$INSTALLATION" get configmap prok
   echo "Cannot read the product release from installation $INSTALLATION. Install the system chart first and check enrollment API access." >&2
   exit 1
 }
-if [ "$installed" != "$SUPPORTED_SYSTEM_VERSION" ]; then
-  echo "Workspace requires system chart $SUPPORTED_SYSTEM_VERSION in $INSTALLATION; found ${installed:-no release version}." >&2
+if [ -z "$installed" ]; then
+  echo "Installation $INSTALLATION has no recorded system release." >&2
   exit 1
 fi
 
