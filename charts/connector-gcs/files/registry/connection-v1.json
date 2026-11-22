@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "properties": {
+    "bucket": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 222,
+      "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$"
+    },
+    "prefix": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "bucketProjectNumber": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "expectedServiceAccountEmail": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 254,
+      "pattern": "^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*[.]iam[.]gserviceaccount[.]com$"
+    },
+    "credentialsSecretRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "authMode": {
+      "type": "string",
+      "enum": [
+        "serviceAccountKey",
+        "impersonation"
+      ]
+    }
+  },
+  "required": [
+    "bucket",
+    "prefix",
+    "bucketProjectNumber",
+    "expectedServiceAccountEmail"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "authMode": {
+          "const": "impersonation"
+        }
+      },
+      "required": [
+        "authMode"
+      ],
+      "not": {
+        "required": [
+          "credentialsSecretRef"
+        ]
+      }
+    },
+    {
+      "properties": {
+        "authMode": {
+          "const": "serviceAccountKey"
+        }
+      },
+      "required": [
+        "credentialsSecretRef"
+      ]
+    }
+  ]
+}

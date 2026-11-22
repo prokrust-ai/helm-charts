@@ -1,0 +1,1 @@
+{"type":"object","properties":{"kind":{"type":"string","enum":["prefix","object"]},"path":{"type":"string","maxLength":1024}},"required":["kind","path"],"additionalProperties":false}

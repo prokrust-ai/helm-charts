@@ -1,4 +1,14 @@
-# Runtime token admission
+# connector-gcs
+
+The chart publishes the signed release's descriptor and schema files in
+`prokrust-connector-gcs-registry` in its installation namespace. Each
+namespace supports one installation of this provider.
+
+Set `imagePullSecrets`, `nodeSelector`, and `tolerations` for the controller
+Pod. Set `runtimeNodeSelector` and `runtimeTolerations` for runtime Pods.
+Runtime Pods use the image pull secrets of their workspace ServiceAccount.
+
+## Runtime token admission
 
 Runtime root protection denies ordinary callers access to the reserved service
 account, including `serviceaccounts/token`. Set `runtimeTokenAudiences` only to

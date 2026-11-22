@@ -1,6 +1,9 @@
-controllerImage: ar.prokrust.io/prokrust/connector-gcs@sha256:f1c0702c11470d62f145d66677d664af319df3f18bb6585d8adb378bce6568a6
-runtimeImage: ar.prokrust.io/prokrust/connector-gcs@sha256:f1c0702c11470d62f145d66677d664af319df3f18bb6585d8adb378bce6568a6
-descriptorDigest: sha256:7e294cf3824ca9ebea98093895e1937173da23d63fe7b288bc9b8d537e899beb
+controllerImage: ar.prokrust.io/prokrust/connector-gcs@sha256:24d99efae1bbe59da86f6865f4419ef13e493a54f9b17eee26a26d063e7f719a
+runtimeImage: ar.prokrust.io/prokrust/connector-gcs@sha256:24d99efae1bbe59da86f6865f4419ef13e493a54f9b17eee26a26d063e7f719a
+descriptorDigest: sha256:b6ea558b9a9299e7534d3cc5d8e520fd356853233e662d83e7056fe462a3947b
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
 runtimeTokenAudiences: []
 runtimeArtifactCredentialsSecretName: ''
