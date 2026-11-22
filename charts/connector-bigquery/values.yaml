@@ -1,6 +1,9 @@
-controllerImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:8809457884ce0b414f5e1b08e39f776c8eaf9edc8073a9310c7a5f3dc98862b4
-runtimeImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:8809457884ce0b414f5e1b08e39f776c8eaf9edc8073a9310c7a5f3dc98862b4
-descriptorDigest: sha256:3ac25a70c62442bef34518422d5be0d3daa2f1d37bd51bcebc43a4bb6acd275a
+controllerImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:d130072c245a148c6795cd0ba93812fda02d6a64fa5255a5a84c6df279905257
+runtimeImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:d130072c245a148c6795cd0ba93812fda02d6a64fa5255a5a84c6df279905257
+descriptorDigest: sha256:e84daa29b1d2888924851d6ee236738a969ccdfd6ed04cc91056599651aa7902
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
 runtimeTokenAudiences: []
 runtimeSourceTokenAudience: ''

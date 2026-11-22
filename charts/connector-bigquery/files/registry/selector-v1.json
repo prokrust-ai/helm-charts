@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {"type": "string", "enum": ["dataset", "table"]},
+    "dataset": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9_]+$"},
+    "table": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9_-]+$"}
+  },
+  "required": ["kind", "dataset"],
+  "if": {"properties": {"kind": {"const": "table"}}},
+  "then": {"required": ["table"]},
+  "else": {"not": {"required": ["table"]}},
+  "additionalProperties": false
+}

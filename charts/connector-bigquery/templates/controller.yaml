@@ -1,4 +1,4 @@
-{{- $name := include "connector.name" . -}}
+{{- $name := include "connector-bigquery.name" . -}}
 {{- $image := required "controllerImage must be pinned by digest" .Values.controllerImage -}}
 {{- if not (regexMatch "@sha256:[a-f0-9]{64}$" $image) -}}{{ fail "controllerImage must be pinned by digest" }}{{- end }}
 apiVersion: v1
@@ -13,7 +13,7 @@ metadata:
   name: {{ $name }}-settings
   namespace: {{ .Release.Namespace }}
 data:
-  settings.json: {{ include "connector.settings" . | quote }}
+  settings.json: {{ include "connector-bigquery.settings" . | quote }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,9 +29,21 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: {{ $name }}}
       annotations:
-        prokrust.ai/settings-digest: {{ include "connector.settings" . | sha256sum }}
+        prokrust.ai/settings-digest: {{ include "connector-bigquery.settings" . | sha256sum }}
     spec:
       serviceAccountName: {{ $name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

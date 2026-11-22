@@ -1,0 +1,122 @@
+{
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 30,
+      "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+    },
+    "billingProject": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 30,
+      "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+    },
+    "location": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$"
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^[A-Za-z0-9_]+$"
+      }
+    },
+    "expectedServiceAccountEmail": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 254,
+      "pattern": "^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*[.]iam[.]gserviceaccount[.]com$"
+    },
+    "credentialsSecretRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "authMode": {
+      "type": "string",
+      "enum": [
+        "serviceAccountKey",
+        "impersonation",
+        "federation"
+      ]
+    },
+    "federationAudience": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^//iam[.]googleapis[.]com/projects/[0-9]{1,20}/locations/global/workloadIdentityPools/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]/providers/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$"
+    }
+  },
+  "required": [
+    "project",
+    "billingProject",
+    "location",
+    "datasets",
+    "expectedServiceAccountEmail"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "authMode": {
+          "const": "impersonation"
+        },
+        "credentialsSecretRef": false,
+        "federationAudience": false
+      },
+      "required": [
+        "authMode"
+      ]
+    },
+    {
+      "properties": {
+        "authMode": {
+          "const": "serviceAccountKey"
+        }
+      },
+      "required": [
+        "credentialsSecretRef"
+      ],
+      "not": {
+        "required": [
+          "federationAudience"
+        ]
+      }
+    },
+    {
+      "properties": {
+        "authMode": {
+          "const": "federation"
+        }
+      },
+      "required": [
+        "authMode",
+        "federationAudience"
+      ],
+      "not": {
+        "required": [
+          "credentialsSecretRef"
+        ]
+      }
+    }
+  ]
+}

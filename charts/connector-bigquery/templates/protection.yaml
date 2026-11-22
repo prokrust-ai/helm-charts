@@ -1,5 +1,5 @@
 {{- if .Values.protectRuntimeRoots }}
-{{- $name := include "connector.name" . }}
+{{- $name := include "connector-bigquery.name" . }}
 {{- $trusted := printf "(has(request.userInfo.groups) && 'system:serviceaccounts:%s' in request.userInfo.groups) || (has(request.userInfo.username) && request.userInfo.username in %s)" .Release.Namespace (.Values.additionalTrustedUsers | toJson) }}
 {{- $system := list "system:kube-controller-manager" "system:serviceaccount:kube-system:deployment-controller" "system:serviceaccount:kube-system:replicaset-controller" "system:serviceaccount:kube-system:endpoint-controller" "system:serviceaccount:kube-system:endpointslice-controller" "system:serviceaccount:kube-system:endpointslicemirroring-controller" "system:serviceaccount:kube-system:generic-garbage-collector" "system:serviceaccount:kube-system:namespace-controller" | toJson }}
 {{- $artifactSecret := .Values.runtimeArtifactCredentialsSecretName }}
