@@ -1,6 +1,9 @@
-controllerImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:5ccb0ee189f3eb4f3d373c5d4c996905b475cf8de1e6e7b057cd9fa0058e42d2
-runtimeImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:5ccb0ee189f3eb4f3d373c5d4c996905b475cf8de1e6e7b057cd9fa0058e42d2
-descriptorDigest: sha256:bfc20e2b4f4b8ad7cc935cd47d6ee7df31953c008fe2d82af33845a04b6cbd15
+controllerImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:b7a65198ecb2624ee3c63db2644ef5c853d8d152f06ce4e7da4164277635b6eb
+runtimeImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:b7a65198ecb2624ee3c63db2644ef5c853d8d152f06ce4e7da4164277635b6eb
+descriptorDigest: sha256:ac0ce5d113dddf4ce1010f8984ee22b7b9897964a3be9198fb454fc5be8c6e4a
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
 runtimeTokenAudiences: []
 runtimeArtifactCredentialsSecretName: ''

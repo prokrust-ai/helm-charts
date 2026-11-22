@@ -2,11 +2,11 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "connector.name" $ }}-api
+  name: {{ include "connector-iceberg.name" $ }}-api
   namespace: {{ $.Release.Namespace }}
 spec:
   podSelector:
-    matchLabels: {app.kubernetes.io/name: {{ include "connector.name" $ }}}
+    matchLabels: {app.kubernetes.io/name: {{ include "connector-iceberg.name" $ }}}
   policyTypes: [Egress]
   egress:
     {{- range . }}
