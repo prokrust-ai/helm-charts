@@ -50,6 +50,9 @@ data:
     namespace = {{ .namespace | toJson }}
     serviceAccount = {{ .serviceAccount | toJson }}
     installationReports = {{ default false .installationReports }}
+    {{- if .installationActivation }}
+    installationActivation = true
+    {{- end }}
     {{- end }}
     {{- range $id, $provider := $auth.providers }}
     {{- if not (regexMatch "^[A-Za-z0-9_-]{1,63}$" $id) }}{{ fail "global.oidc.providers keys must be valid provider IDs" }}{{ end }}
@@ -86,7 +89,7 @@ subjects:
   - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ .Release.Namespace }}}
 {{- end }}
 {{- range $pair, $target := $targets }}
-{{- if or $target.installationReports $auth.allowArtifactHostInspection }}
+{{- if or $target.installationReports $target.installationActivation $auth.allowArtifactHostInspection }}
 {{- $grant := printf "prokrust-oidc-reader-%s" (sha256sum $pair | trunc 16) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -95,6 +98,12 @@ metadata:
   name: {{ $grant }}
   namespace: {{ $.Release.Namespace }}
 rules:
+  {{- if $target.installationActivation }}
+  - apiGroups: [platform.prokrust.ai]
+    resources: [licenseactivations]
+    resourceNames: [default]
+    verbs: [get]
+  {{- end }}
   {{- if $target.installationReports }}
   - apiGroups: [""]
     resources: [configmaps]

@@ -561,6 +561,9 @@
                     "maxLength": 253,
                     "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
                   },
+                  "installationActivation": {
+                    "type": "boolean"
+                  },
                   "installationReports": {
                     "type": "boolean"
                   }
