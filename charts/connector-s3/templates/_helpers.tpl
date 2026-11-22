@@ -1,7 +1,16 @@
-{{- define "connector.name" -}}
-{{- printf "%s-%s" .Release.Namespace .Release.Name | trunc 53 | trimSuffix "-" -}}
+{{- define "connector-s3.name" -}}
+{{- if eq .Chart.Name "s3" -}}
+  {{- $full := printf "%s-connector-s3" .Release.Namespace -}}
+  {{- if gt (len $full) 53 -}}
+    {{- printf "%s-%s" ($full | trunc 40 | trimSuffix "-") (sha256sum $full | trunc 12) -}}
+  {{- else -}}
+    {{- $full -}}
+  {{- end -}}
+{{- else -}}
+  {{- printf "%s-%s" .Release.Namespace .Release.Name | trunc 53 | trimSuffix "-" -}}
 {{- end -}}
-{{- define "connector.settings" -}}
+{{- end -}}
+{{- define "connector-s3.settings" -}}
 {{- $runtime := required "runtimeImage must be pinned by digest" .Values.runtimeImage -}}
 {{- if not (regexMatch "@sha256:[a-f0-9]{64}$" $runtime) -}}{{ fail "runtimeImage must be pinned by digest" }}{{- end -}}
 {{- $digest := required "descriptorDigest is required" .Values.descriptorDigest -}}
