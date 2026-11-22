@@ -1,0 +1,1 @@
+{"type":"object","properties":{"seed":{"type":"integer","minimum":0,"maximum":999999},"partitions":{"type":"integer","minimum":1,"maximum":100000},"rowsPerPartition":{"type":"integer","minimum":0,"maximum":100000}},"required":["seed","partitions","rowsPerPartition"],"additionalProperties":false}

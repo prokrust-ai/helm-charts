@@ -1,7 +1,16 @@
-{{- define "connector.name" -}}
-{{- printf "%s-%s" .Release.Namespace .Release.Name | trunc 53 | trimSuffix "-" -}}
+{{- define "connector-synthetic.name" -}}
+{{- if eq .Chart.Name "synthetic" -}}
+  {{- $full := printf "%s-connector-synthetic" .Release.Namespace -}}
+  {{- if gt (len $full) 53 -}}
+    {{- printf "%s-%s" ($full | trunc 40 | trimSuffix "-") (sha256sum $full | trunc 12) -}}
+  {{- else -}}
+    {{- $full -}}
+  {{- end -}}
+{{- else -}}
+  {{- printf "%s-%s" .Release.Namespace .Release.Name | trunc 53 | trimSuffix "-" -}}
 {{- end -}}
-{{- define "connector.settings" -}}
+{{- end -}}
+{{- define "connector-synthetic.settings" -}}
 {{- $runtime := required "runtimeImage must be pinned by digest" .Values.runtimeImage -}}
 {{- if not (regexMatch "@sha256:[a-f0-9]{64}$" $runtime) -}}{{ fail "runtimeImage must be pinned by digest" }}{{- end -}}
 {{- $digest := required "descriptorDigest is required" .Values.descriptorDigest -}}

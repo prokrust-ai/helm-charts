@@ -1,6 +1,9 @@
-controllerImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:9f14057f96c065f70975681795aabab7dd5f0ed5dccc8d5efa120ade6c4da867
-runtimeImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:9f14057f96c065f70975681795aabab7dd5f0ed5dccc8d5efa120ade6c4da867
-descriptorDigest: sha256:cb12cb42f0b6884cf2cdc7dac2fa84f5d018f1e059e41a6aa0172308c8653c0b
+controllerImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:7aeb08ac8a4d6516b1d1960acc4d0ce1f9e0987d7a46591d20c46e8febf2e9d7
+runtimeImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:7aeb08ac8a4d6516b1d1960acc4d0ce1f9e0987d7a46591d20c46e8febf2e9d7
+descriptorDigest: sha256:55dd027b73bd0dc8fad877b43b6db1a0d5c9badf6d90e3c1aa2a658acfadde92
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
 runtimeTokenAudiences: []
 runtimeArtifactCredentialsSecretName: ''

@@ -1,0 +1,1 @@
+{"type":"object","properties":{"dataset":{"type":"string","const":"events"}},"required":["dataset"],"additionalProperties":false}

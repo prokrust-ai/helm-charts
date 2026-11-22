@@ -1,0 +1,16 @@
+{{- $template := .Files.Get "files/registry/descriptor.json.tpl" -}}
+{{- $descriptor := printf "%s\n" (tpl $template . | mustFromJson | mustToRawJson) -}}
+{{- $digest := printf "sha256:%s" (sha256sum $descriptor) -}}
+{{- if ne $digest .Values.descriptorDigest -}}
+{{- fail "synthetic registry descriptor differs from the published descriptorDigest" -}}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-connector-synthetic-registry
+  namespace: {{ .Release.Namespace }}
+data:
+  registration.json: {{ dict "id" "prokrust.ai/synthetic" "enabled" true "release" .Chart.AppVersion "descriptor" (dict "file" "descriptor.json" "sha256" $digest) "controllerNamespace" .Release.Namespace "tlsProfile" "installation-ca" | toJson | quote }}
+  descriptor.json: {{ $descriptor | quote }}
+  connection-v1.json: {{ .Files.Get "files/registry/connection-v1.json" | quote }}
+  selector-v1.json: {{ .Files.Get "files/registry/selector-v1.json" | quote }}
