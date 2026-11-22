@@ -1,0 +1,10 @@
+{{- with index .Subcharts "web-api" -}}
+  {{- if .Values.webApi.renderFromParent -}}
+    {{- $registry := include "operator.connectorRegistry" $ | fromJson -}}
+    {{- $context := merge (dict) . -}}
+    {{- if $registry.sources -}}
+      {{- $_ := set $context "ConnectorRegistry" (pick $registry "sources" "checksum") -}}
+    {{- end -}}
+    {{- include "web-api.resources" $context -}}
+  {{- end -}}
+{{- end -}}

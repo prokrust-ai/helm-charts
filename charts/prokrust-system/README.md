@@ -13,8 +13,17 @@ Provide registry pull credentials, licensing Secrets, and cluster-specific
 network access through values. Controller requests and limits are configurable
 under `controllers.applicationResources` and `controllers.ballistaClusterResources`.
 
-For external sources, enable `connectors.enabled`, install the provider charts,
-and supply their pinned descriptor registry through `connectors.registryConfigMap`
-and `connectors.registryItems`. Configure the embedded Web API with the same
-registry using `web-api.webApi.connectorRegistryConfigMap` and
-`web-api.webApi.connectorRegistryItems`.
+Enable a bundled provider with `connectors.<provider>.enabled: true` and place
+its Helm overrides under the same provider key. The supported keys are
+`bigquery`, `gcs`, `iceberg`, `paimon`, `s3`, and `synthetic`. Install the
+corresponding CRDs with `prokrust-crds`. Each enabled chart installs its
+controller and its `prokrust-connector-<provider>-registry` ConfigMap. The
+application controller and Web API project those bundles into their registries;
+changing provider versions or enablement rolls both consumers.
+
+Existing installations using an external registry can keep `connectors.enabled`,
+`connectors.registryConfigMap`, `connectors.registryItems` and their Web API
+registry settings. Remove those settings when migrating to the provider map.
+If provider resources already belong to standalone Helm releases, transfer
+their ownership to the system release before enabling the same providers.
+Review existing resource names and ensure each has a single release owner.

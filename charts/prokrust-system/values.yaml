@@ -1,9 +1,16 @@
 connectors:
-  enabled: false
-  registryConfigMap: prokrust-connector-registry
-  registryItems: []
-  trustBundleConfigMap: ''
-  bootstrapCA: true
+  bigquery:
+    enabled: false
+  gcs:
+    enabled: false
+  iceberg:
+    enabled: false
+  paimon:
+    enabled: false
+  s3:
+    enabled: false
+  synthetic:
+    enabled: false
 global:
   awsRegion: ''
   networkFamily: IPv4
@@ -110,7 +117,7 @@ components:
   serving:
     version: 0.11.0-rc.2
   web-api:
-    version: 0.25.0-rc.1
+    version: 0.26.0-rc.1
   ballista:
     version: 0.4.0
     chartVersion: 0.4.0
@@ -153,10 +160,11 @@ serving:
 web-api:
   webApi:
     enabled: true
+    renderFromParent: true
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:657bd5212fa4e799acf9c26b897b26a33c01a3c6cc1b58cfa90564176fa13e62
+      digest: sha256:0d3a688c1b3fbb11ce8d0e7b7165befa710bac24550b743565837c236d8f6174
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []

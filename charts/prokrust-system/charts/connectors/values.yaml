@@ -1,0 +1,12 @@
+bigquery:
+  enabled: false
+gcs:
+  enabled: false
+iceberg:
+  enabled: false
+paimon:
+  enabled: false
+s3:
+  enabled: false
+synthetic:
+  enabled: false

@@ -1,6 +1,9 @@
 dependencies:
 - name: web-api
   repository: ''
-  version: 0.25.0-rc.1
-digest: sha256:abd3f7e89a4dcda50c09fd33d267344f71006e48ad5823e564752dccac8d9a04
+  version: 0.26.0-rc.1
+- name: connectors
+  repository: ''
+  version: 1.0.0
+digest: sha256:c3e3998c303c5391a848cee56a98982909ed9454391bf85e79543a4559f113a2
 generated: '1970-01-01T00:00:00Z'

@@ -1,6 +1,6 @@
-{{- if .Values.connectors.enabled }}
+{{- if (include "operator.connectorRegistry" . | fromJson).enabled }}
 {{- $namespace := .Release.Namespace }}
-{{- if .Values.connectors.bootstrapCA }}
+{{- if (dig "bootstrapCA" true .Values.connectors) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:

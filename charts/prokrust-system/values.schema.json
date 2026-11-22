@@ -910,15 +910,29 @@
               }
             }
           }
+        },
+        "global": {
+          "type": "object"
+        },
+        "bigquery": {
+          "$ref": "#/$defs/connectorProvider"
+        },
+        "gcs": {
+          "$ref": "#/$defs/connectorProvider"
+        },
+        "iceberg": {
+          "$ref": "#/$defs/connectorProvider"
+        },
+        "paimon": {
+          "$ref": "#/$defs/connectorProvider"
+        },
+        "s3": {
+          "$ref": "#/$defs/connectorProvider"
+        },
+        "synthetic": {
+          "$ref": "#/$defs/connectorProvider"
         }
-      },
-      "required": [
-        "enabled",
-        "registryConfigMap",
-        "trustBundleConfigMap",
-        "bootstrapCA",
-        "registryItems"
-      ]
+      }
     },
     "profiling": {
       "type": "object",
@@ -1095,6 +1109,14 @@
               "minLength": 1
             }
           }
+        }
+      }
+    },
+    "connectorProvider": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     }

@@ -1,3 +1,12 @@
+{{- define "web-api.resources" -}}
+{{- $registry := .ConnectorRegistry -}}
+{{- if and $registry (or .Values.webApi.connectorRegistryConfigMap .Values.webApi.connectorRegistryItems) -}}
+{{- fail "Configure either the system provider registry or webApi.connectorRegistryConfigMap" -}}
+{{- end -}}
+{{- if and $registry (or (empty $registry.sources) (not (regexMatch "^[a-f0-9]{64}$" (default "" $registry.checksum)))) -}}
+{{- fail "Projected connector registry requires sources and a SHA-256 checksum" -}}
+{{- end -}}
+{{- $hasRegistry := or $registry .Values.webApi.connectorRegistryConfigMap -}}
 {{- $oidc := .Values.global.oidc | default dict -}}
 {{- if and $oidc.enabled (not .Values.webApi.browserOrigin) -}}
 {{- fail "global.oidc.enabled requires webApi.browserOrigin set to the public HTTPS origin" -}}
@@ -51,9 +60,14 @@ spec:
     matchLabels: {app.kubernetes.io/name: prokrust-web-api}
   template:
     metadata:
-      {{- if $oidc.enabled }}
+      {{- if or $oidc.enabled $registry }}
       annotations:
+        {{- if $oidc.enabled }}
         prokrust.ai/auth-revision: {{ int64 $oidc.revision | quote }}
+        {{- end }}
+        {{- with $registry }}
+        prokrust.ai/connector-registry-checksum: {{ .checksum | quote }}
+        {{- end }}
       {{- end }}
       labels:
         app.kubernetes.io/name: prokrust-web-api
@@ -98,7 +112,7 @@ spec:
             - name: PROKRUST_ARGO_UI_BASE_URL
               value: {{ .Values.webApi.argoUiBaseUrl | quote }}
             {{- end }}
-            {{- if .Values.webApi.connectorRegistryConfigMap }}
+            {{- if $hasRegistry }}
             - name: PROKRUST_CONNECTOR_CONFIG
               value: /var/run/prokrust-connectors/registry.json
             {{- end }}
@@ -120,9 +134,9 @@ spec:
             - name: RP_ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS_FILE
               value: /var/run/prokrust/gcp/config.json
             {{- end }}
-          {{- if or $oidc.enabled .Values.webApi.artifactFederation .Values.webApi.connectorRegistryConfigMap }}
+          {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
           volumeMounts:
-            {{- if .Values.webApi.connectorRegistryConfigMap }}
+            {{- if $hasRegistry }}
             - {name: connector-registry, mountPath: /var/run/prokrust-connectors, readOnly: true}
             {{- end }}
             {{- if $oidc.enabled }}
@@ -144,15 +158,20 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: ["ALL"]}
-      {{- if or $oidc.enabled .Values.webApi.artifactFederation .Values.webApi.connectorRegistryConfigMap }}
+      {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
       volumes:
-        {{- if .Values.webApi.connectorRegistryConfigMap }}
+        {{- if $hasRegistry }}
         - name: connector-registry
+          {{- if $registry }}
+          projected:
+            sources: {{ $registry.sources | toJson }}
+          {{- else }}
           configMap:
             name: {{ .Values.webApi.connectorRegistryConfigMap | quote }}
             {{- with .Values.webApi.connectorRegistryItems }}
             items: {{ . | toJson }}
             {{- end }}
+          {{- end }}
         {{- end }}
         {{- if $oidc.enabled }}
         - name: oidc-config
@@ -327,4 +346,9 @@ spec:
       - ipBlock: {cidr: "fd00:ec2::23/128"}
       ports: [{protocol: TCP, port: 80}]
     {{- end }}
+{{- end }}
+{{- end }}
+
+{{- if not .Values.webApi.renderFromParent }}
+{{ include "web-api.resources" . }}
 {{- end }}

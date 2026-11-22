@@ -1,4 +1,4 @@
-{{- if .Values.connectors.enabled }}
+{{- if (include "operator.connectorRegistry" . | fromJson).enabled }}
 {{- $name := printf "%s-connector-platform" .Release.Namespace }}
 {{- $application := printf "system:serviceaccount:%s:prokrust-application-controller" .Release.Namespace }}
 {{- $ballista := printf "system:serviceaccount:%s:prokrust-ballista-cluster-controller" .Release.Namespace }}
