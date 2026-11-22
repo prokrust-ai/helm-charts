@@ -1,6 +1,9 @@
-controllerImage: ar.prokrust.io/prokrust/connector-paimon@sha256:fc82b298bc9b3ad03760b224f35faa2d20e54f5f02f50d3551f4fc46117af6ac
-runtimeImage: ar.prokrust.io/prokrust/connector-paimon@sha256:fc82b298bc9b3ad03760b224f35faa2d20e54f5f02f50d3551f4fc46117af6ac
-descriptorDigest: sha256:9e7daed83ac1be7476b53d4d9331eb1e6386ffa5ef318bc52245d11dd2e274f6
+controllerImage: ar.prokrust.io/prokrust/connector-paimon@sha256:a057cd0e9ce3e7ff264e33bc1da8ea8fbaab81bb5725f9ca6fdde5d9defb69e2
+runtimeImage: ar.prokrust.io/prokrust/connector-paimon@sha256:a057cd0e9ce3e7ff264e33bc1da8ea8fbaab81bb5725f9ca6fdde5d9defb69e2
+descriptorDigest: sha256:6bf6e0803ead2a659ec913699c54c8a6eb4b75d03ef043ec87f98677394d422f
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
 runtimeTokenAudiences: []
 runtimeArtifactCredentialsSecretName: ''
