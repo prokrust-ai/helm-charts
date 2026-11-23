@@ -543,6 +543,57 @@
                 ]
               }
             },
+            "installationGrants": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "providerRef": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,63}$"
+                  },
+                  "rule": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "licenseReport": {
+                    "type": "boolean"
+                  },
+                  "licenseActivation": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "providerRef",
+                  "rule"
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "licenseReport"
+                    ],
+                    "properties": {
+                      "licenseReport": {
+                        "const": true
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "licenseActivation"
+                    ],
+                    "properties": {
+                      "licenseActivation": {
+                        "const": true
+                      }
+                    }
+                  }
+                ]
+              }
+            },
             "targets": {
               "type": "array",
               "uniqueItems": true,

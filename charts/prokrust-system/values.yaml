@@ -54,6 +54,7 @@ global:
     revision: 1
     providers: {}
     targets: []
+    installationGrants: []
     providerEgressCIDRs: []
     allowArtifactHostInspection: false
     redis:
@@ -117,7 +118,7 @@ components:
   serving:
     version: 0.11.0-rc.2
   web-api:
-    version: 0.27.0-rc.2
+    version: 0.28.0-rc.1
   ballista:
     version: 0.4.0
     chartVersion: 0.4.0
@@ -164,7 +165,7 @@ web-api:
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:d852add8e5b5d5066f8f9059acb1ecf6079242a1882fa0ff10ebfb6a084184e9
+      digest: sha256:0a1e06cacbd44ed59b97a3fc437a72a89e74f091141bf57b337072e4884a3e3c
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []

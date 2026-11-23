@@ -54,6 +54,14 @@ data:
     installationActivation = true
     {{- end }}
     {{- end }}
+    {{- range $grant := $auth.installationGrants }}
+    {{- if not (hasKey $auth.providers $grant.providerRef) }}{{ fail "OIDC installation grant references an unknown provider" }}{{ end }}
+    [[installationGrants]]
+    providerRef = {{ $grant.providerRef | toJson }}
+    rule = {{ $grant.rule | toJson }}
+    licenseReport = {{ default false $grant.licenseReport }}
+    licenseActivation = {{ default false $grant.licenseActivation }}
+    {{- end }}
     {{- range $id, $provider := $auth.providers }}
     {{- if not (regexMatch "^[A-Za-z0-9_-]{1,63}$" $id) }}{{ fail "global.oidc.providers keys must be valid provider IDs" }}{{ end }}
     [oidc.providers.{{ $id }}]

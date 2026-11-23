@@ -1,0 +1,67 @@
+{{- $auth := .Values.global.oidc -}}
+{{- if and $auth.enabled $auth.installationGrants -}}
+{{- $subjects := list -}}
+{{- $readers := list
+      (dict "capability" "licenseReport" "account" "prokrust-installation-license-reader"
+            "group" "" "resource" "configmaps" "name" "prokrust-license-installation-usage")
+      (dict "capability" "licenseActivation" "account" "prokrust-installation-activation-reader"
+            "group" "platform.prokrust.ai" "resource" "licenseactivations" "name" "default") -}}
+{{- range $reader := $readers }}
+{{- $enabled := false -}}
+{{- range $grant := $auth.installationGrants -}}
+{{- if index $grant $reader.capability }}{{- $enabled = true }}{{- end -}}
+{{- end -}}
+{{- if $enabled }}
+{{- $subjects = append $subjects $reader.account }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $reader.account }}
+  namespace: {{ $.Release.Namespace }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $reader.account }}
+  namespace: {{ $.Release.Namespace }}
+rules:
+  - apiGroups: [{{ $reader.group | quote }}]
+    resources: [{{ $reader.resource }}]
+    resourceNames: [{{ $reader.name }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $reader.account }}
+  namespace: {{ $.Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $reader.account }}}
+subjects:
+  - {kind: ServiceAccount, name: {{ $reader.account }}, namespace: {{ $.Release.Namespace }}}
+{{- end }}
+{{- end }}
+{{- if $subjects }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-web-api-installation-impersonator
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: {{ $subjects | toJson }}
+    verbs: [impersonate]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prokrust-web-api-installation-impersonator
+  namespace: {{ .Release.Namespace }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: prokrust-web-api-installation-impersonator}
+subjects:
+  - {kind: ServiceAccount, name: prokrust-web-api, namespace: {{ .Release.Namespace }}}
+{{- end }}
+{{- end }}
