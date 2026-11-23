@@ -1,4 +1,4 @@
-supportedSystemVersion: 0.22.0-rc.4
+supportedSystemVersion: 0.26.0-rc.1
 connectors:
   enabled: false
   connectionResources: []
@@ -70,7 +70,7 @@ serving:
       repository: ar.prokrust.io/prokrust/model-server
       digest: sha256:ba1c037ed22ac69cf40f5a5dca590e68c601fd366413f8f175e519cfc2b7cd50
       pullPolicy: IfNotPresent
-tenantDefaults: []
+workspace: {}
 licensing:
   usageReader:
     enabled: false

@@ -1,0 +1,75 @@
+admission:
+  graph:
+    edgesMax: 10000000
+    nodesMax: 4000000
+    shards:
+      arrowBufferBytesMax: 536870912
+      destinationNodesMax: 1000000
+      edgesMax: 10000000
+      nodeRowsMax: 1000000
+      objectBytesMax: 1073741824
+  prediction:
+    outputPartitionsMax: 32
+    outputPartitionsMin: 1
+  serving:
+    maxBatchSize: 32
+    maxReplicas: 1
+    maxTimeoutSeconds: 30
+    minReplicas: 1
+  training:
+    maxNullLabelRatio: 0.05
+    model:
+      batchSizeMax: 65536
+      batchSizeMin: 1
+      dropoutMaxExclusive: 1
+      dropoutMin: 0
+      earlyStoppingPatienceMax: 100
+      earlyStoppingPatienceMin: 0
+      fanoutPerLayerMax: 1024
+      fanoutPerLayerMin: 0
+      hiddenDimensionMax: 1024
+      hiddenDimensionMin: 1
+      layersMax: 2
+      layersMin: 1
+      learningRateMax: 1
+      learningRateMinExclusive: 0
+      maxEpochsMax: 1000
+      maxEpochsMin: 1
+execution:
+  contractVersion: prokrust.policy/v3
+  controller:
+    artifactStoreProbeTtlSeconds: 300
+    cancellationGraceSeconds: 30
+    connectionProbeTtlSeconds: 300
+    conversionParallelism: 16
+    workflowRecoveryLimit: 1
+    workflowTtlAfterTerminalSeconds: 86400
+  identities:
+    artifactStoreProbe: prokrust-artifact-store-probe
+    artifactWriter: prokrust-artifact-writer
+    ballistaClusterController: prokrust-ballista-cluster-controller
+    ballistaHealthProbe: prokrust-workflow-executor
+    batchPredictor: prokrust-batch-predictor
+    connectionProbe: prokrust-connection-probe
+    controllerManager: prokrust-application-controller
+    graphMaterializer: prokrust-graph-materializer
+    kserveRuntime: prokrust-kserve-runtime
+    predictionMaterializer: prokrust-prediction-materializer
+    tableMaterializer: prokrust-table-materializer
+    tableStaging: prokrust-table-staging
+    trainer: prokrust-trainer
+    trainingMaterializer: prokrust-training-materializer
+    workflowExecutor: prokrust-workflow-executor
+  programs:
+    graphSnapshot:
+      programId: prokrust.graph-snapshot
+      version: '4'
+    predictionRun:
+      programId: prokrust.prediction-run
+      version: '4'
+    tableSnapshot:
+      programId: prokrust.table-snapshot
+      version: '5'
+    trainingRun:
+      programId: prokrust.training-run
+      version: '4'

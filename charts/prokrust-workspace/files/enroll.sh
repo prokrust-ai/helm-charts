@@ -53,6 +53,17 @@ if [ "$CHECK_DEFAULTS" = true ]; then
   done
 fi
 
+if [ "${CHECK_BALLISTA_ACCOUNTS:-false}" = true ]; then
+  for name in prokrust-ballista-scheduler prokrust-ballista-executor; do
+    found="$(kubectl --request-timeout=10s -n "$WORKSPACE" get serviceaccount "$name" --ignore-not-found \
+      -o 'jsonpath={.metadata.name}{"|"}{.metadata.annotations.prokrust\.ai/workspace-chart}')"
+    if [ -n "$found" ] && [ "$found" != "$name|$WORKSPACE_RELEASE" ]; then
+      echo "External ServiceAccount/$name exists. Select workspace.ballistaAccounts=external to preserve its ownership." >&2
+      exit 1
+    fi
+  done
+fi
+
 for attempt in 1 2 3 4 5; do
   state="$(read_namespace 'jsonpath={.metadata.resourceVersion}{"|"}{.metadata.labels.prokrust\.ai/installation}{"|"}{.metadata.deletionTimestamp}')" || {
     echo "Cannot read workspace Namespace $WORKSPACE. Provision the namespace and check enrollment RBAC and API egress." >&2

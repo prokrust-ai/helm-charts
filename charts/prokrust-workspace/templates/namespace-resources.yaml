@@ -49,6 +49,11 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prokrust-workflow-executor
+  {{- with .Values.workspace.storage }}
+  {{- with include "workspace.storageAccountAnnotations" .auth }}
+  annotations:{{ . | nindent 4 }}
+  {{- end }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: prokrust
     app.kubernetes.io/managed-by: Helm
@@ -269,7 +274,11 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   namespace: {{ .Release.Namespace }}
 rules:
-{{- with .Values.ballistaController.connectionSecretNames }}
+{{- $secretNames := .Values.ballistaController.connectionSecretNames }}
+{{- with .Values.workspace.storage }}
+{{- range list .auth (.ballistaAuth | default dict) }}{{ if .secretName }}{{ $secretNames = append $secretNames .secretName }}{{ end }}{{ end }}
+{{- end }}
+{{- with ($secretNames | uniq) }}
 # Retained connector qualification checks Secret UID/resourceVersion. Kubernetes
 # RBAC cannot limit get to metadata, so grant only explicitly configured names.
 - apiGroups: [""]

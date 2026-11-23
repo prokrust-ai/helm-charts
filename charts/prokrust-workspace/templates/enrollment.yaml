@@ -54,7 +54,7 @@ metadata:
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $name }}-composition}
 subjects:
   - {kind: ServiceAccount, name: {{ $name }}, namespace: {{ $system }}}
-{{- if .Values.tenantDefaults }}
+{{- if or .Values.tenantDefaults (include "workspace.managed" .) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -67,6 +67,12 @@ rules:
     resources: [prokrustpolicies, artifactstores, ballistaclusters]
     resourceNames: [default]
     verbs: [get]
+{{- if and (include "workspace.managed" .) (ne .Values.workspace.ballistaAccounts "external") }}
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [prokrust-ballista-scheduler, prokrust-ballista-executor]
+    verbs: [get]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -138,7 +144,8 @@ spec:
             - {name: INSTALLATION, value: {{ $system | quote }}}
             - {name: WORKSPACE_RELEASE, value: {{ .Release.Name | quote }}}
             - {name: SUPPORTED_SYSTEM_VERSION, value: {{ required "supportedSystemVersion is required" .Values.supportedSystemVersion | quote }}}
-            - {name: CHECK_DEFAULTS, value: {{ ternary "true" "false" (not (empty .Values.tenantDefaults)) | quote }}}
+            - {name: CHECK_DEFAULTS, value: {{ ternary "true" "false" (or (not (empty .Values.tenantDefaults)) (eq (include "workspace.managed" .) "true")) | quote }}}
+            - {name: CHECK_BALLISTA_ACCOUNTS, value: {{ ternary "true" "false" (and (eq (include "workspace.managed" .) "true") (ne .Values.workspace.ballistaAccounts "external")) | quote }} }
             - {name: HOME, value: /tmp}
           securityContext:
             allowPrivilegeEscalation: false

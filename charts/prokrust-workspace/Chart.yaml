@@ -2,7 +2,7 @@ apiVersion: v2
 name: prokrust-workspace
 description: Workload identities and policy for one Prokrust workspace
 type: application
-version: 0.22.0-rc.3
+version: 0.23.0-rc.1
 appVersion: 0.22.0-rc.2
 kubeVersion: '>=1.35.0-0 <1.38.0-0'
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/prokrust-workspace

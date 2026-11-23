@@ -1,0 +1,37 @@
+artifactStoreRef:
+  name: default
+capacity:
+  idleTimeoutSeconds: 180
+  mode: OnDemand
+executor:
+  memoryPool: 4GiB
+  resources:
+    limits:
+      cpu: '3'
+      ephemeral-storage: 20Gi
+      memory: 8Gi
+    requests:
+      cpu: '2'
+      ephemeral-storage: 10Gi
+      memory: 6Gi
+  vcores: 2
+executorReplicas: 1
+probeResources:
+  limits:
+    cpu: 250m
+    ephemeral-storage: 512Mi
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    ephemeral-storage: 128Mi
+    memory: 128Mi
+schedulerResources:
+  limits:
+    cpu: '1'
+    ephemeral-storage: 4Gi
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    ephemeral-storage: 1Gi
+    memory: 1Gi
+targetPartitions: 16

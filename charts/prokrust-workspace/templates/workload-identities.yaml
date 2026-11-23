@@ -1,7 +1,7 @@
-{{- $accounts := list "prokrust-connection-probe" "prokrust-artifact-store-probe" "prokrust-table-staging" "prokrust-table-materializer" "prokrust-graph-materializer" "prokrust-training-materializer" "prokrust-prediction-materializer" "prokrust-artifact-writer" "prokrust-trainer" "prokrust-batch-predictor" -}}
-{{- if .Values.serving.enabled -}}
-{{- $accounts = append $accounts "prokrust-kserve-runtime" -}}
-{{- end -}}
+{{- $accounts := include "workspace.workers" . | fromJsonArray -}}
+{{- $storage := .Values.workspace.storage | default dict -}}
+{{- $ballistaAccounts := list "prokrust-ballista-scheduler" "prokrust-ballista-executor" -}}
+{{- if and $storage (ne .Values.workspace.ballistaAccounts "external") }}{{ $accounts = concat $accounts $ballistaAccounts }}{{ end -}}
 {{- range $name := $accounts }}
 ---
 apiVersion: v1
@@ -9,6 +9,16 @@ kind: ServiceAccount
 metadata:
   name: {{ $name }}
   namespace: {{ $.Release.Namespace }}
+  {{- if $storage }}
+  {{- $isBallista := has $name $ballistaAccounts }}
+  {{- $auth := ternary ($storage.ballistaAuth | default dict) $storage.auth $isBallista }}
+  {{- $annotations := include "workspace.storageAccountAnnotations" $auth | fromYaml }}
+  {{- if $isBallista }}{{ $_ := set $annotations "prokrust.ai/workspace-chart" $.Release.Name }}{{ end }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
   labels:
     {{- include "operator.labels" $ | nindent 4 }}
 automountServiceAccountToken: false

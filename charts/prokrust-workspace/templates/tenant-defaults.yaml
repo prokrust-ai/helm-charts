@@ -1,7 +1,9 @@
 {{- $root := . -}}
 
 {{- $seen := dict -}}
-{{- range $entry := .Values.tenantDefaults }}
+{{- $entries := .Values.tenantDefaults | default list -}}
+{{- if include "workspace.managed" . }}{{ $entries = list (include "workspace.storageObjects" . | fromJson) }}{{ end -}}
+{{- range $entry := $entries }}
 {{- $namespace := required "tenantDefaults.namespace is required" $entry.namespace -}}
 {{- if or (ne $namespace $root.Release.Namespace) (hasKey $seen $namespace) -}}
 {{- fail "tenantDefaults namespaces must be unique and match the workspace release namespace" -}}
@@ -38,7 +40,11 @@
 {{- $existing := lookup "platform.prokrust.ai/v1beta1" $resource.kind $namespace "default" -}}
 {{- if $existing -}}
 {{- $annotations := default dict $existing.metadata.annotations -}}
-{{- if or (ne (get $annotations "meta.helm.sh/release-name") $root.Release.Name) (ne (get $annotations "meta.helm.sh/release-namespace") $root.Release.Namespace) -}}
+{{- $owner := get $annotations "meta.helm.sh/release-name" -}}
+{{- $ownerNamespace := get $annotations "meta.helm.sh/release-namespace" -}}
+{{- $helmOwned := and (eq $owner $root.Release.Name) (eq $ownerNamespace $root.Release.Namespace) -}}
+{{- $argoOwned := and (empty $owner) (empty $ownerNamespace) (eq (get $annotations "prokrust.ai/workspace-chart") $root.Release.Name) (eq (get $annotations "prokrust.ai/configuration-owner") "chart") -}}
+{{- if not (or $helmOwned $argoOwned) -}}
 {{- fail "tenantDefaults cannot adopt an existing resource owned outside this Helm release" -}}
 {{- end -}}
 {{- end }}
