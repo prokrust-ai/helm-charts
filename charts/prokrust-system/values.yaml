@@ -118,7 +118,7 @@ components:
   serving:
     version: 0.11.0-rc.2
   web-api:
-    version: 0.28.0-rc.1
+    version: 0.29.0-rc.1
   ballista:
     version: 0.4.0
     chartVersion: 0.4.0
@@ -165,7 +165,7 @@ web-api:
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:0a1e06cacbd44ed59b97a3fc437a72a89e74f091141bf57b337072e4884a3e3c
+      digest: sha256:4bbd27c3216e06f97ce536e34990aba006a2f11e3aa98c894de568d15c82bc6a
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []
