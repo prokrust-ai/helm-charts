@@ -6,4 +6,4 @@ features:
     bigquery: false
     iceberg: false
     paimon: false
-crdBundleSha256: 5a1536205b4519785829fc3400bed5346c3bcf4509072d8e5f87b98799c0fba8
+crdBundleSha256: cd4d394c02ab9c6ded8020b2f866587145ed76cf20588f5a9713a1d43d31ed12

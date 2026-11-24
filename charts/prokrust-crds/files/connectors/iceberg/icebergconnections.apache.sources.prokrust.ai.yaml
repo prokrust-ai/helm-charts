@@ -30,6 +30,11 @@ spec:
               required: ["storage", "credentialsSecretRef"]
               oneOf: [{"required": ["metadataPath"]}, {"required": ["catalog"]}]
               properties:
+                placementTemplateRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
                 storage:
                   type: "object"
                   properties:

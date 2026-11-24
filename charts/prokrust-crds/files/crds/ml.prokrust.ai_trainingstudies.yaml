@@ -308,6 +308,19 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                     x-kubernetes-validations:
                     - rule: self.kind != 'GraphSnapshot' || !has(self.expected) || !has(self.expected.producerUid) || !has(self.expected.output) || !has(self.expected.output.uid) || self.expected.producerUid == self.expected.output.uid
+                  materializationPlacementTemplateRef:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   model:
                     maxProperties: 1024
                     properties:
@@ -391,6 +404,19 @@ spec:
                     - learningRate
                     - maxEpochs
                     - temporalStrategy
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  placementTemplateRef:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    required:
+                    - name
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   queryRef:

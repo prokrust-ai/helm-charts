@@ -29,6 +29,11 @@ spec:
                   message: Connection spec is immutable
               required: [bucket, region, prefix, bucketOwner, expectedPrincipalArn, credentialsSecretRef]
               properties:
+                placementTemplateRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
                 bucket: {type: string, minLength: 3, maxLength: 63, pattern: "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"}
                 region: {type: string, minLength: 3, maxLength: 32, pattern: "^[a-z0-9-]+$"}
                 prefix: {type: string, maxLength: 1024}

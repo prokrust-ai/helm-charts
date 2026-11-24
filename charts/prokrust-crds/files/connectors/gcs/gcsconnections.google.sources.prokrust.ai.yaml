@@ -31,6 +31,11 @@ spec:
                   message: Choose a mounted service account key or workload impersonation
               required: [bucket, prefix, bucketProjectNumber, expectedServiceAccountEmail]
               properties:
+                placementTemplateRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
                 authMode: {type: string, enum: [serviceAccountKey, impersonation]}
                 bucket: {type: string, minLength: 3, maxLength: 222, pattern: "^[a-z0-9][a-z0-9._-]*[a-z0-9]$"}
                 prefix: {type: string, maxLength: 1024}

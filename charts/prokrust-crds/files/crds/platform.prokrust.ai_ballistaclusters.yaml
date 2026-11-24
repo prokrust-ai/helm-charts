@@ -96,12 +96,36 @@ spec:
               executorImage:
                 maxLength: 16384
                 type: string
+              executorPlacementTemplateRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  name:
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
               executorReplicas:
                 format: int32
                 type: integer
               maxConcurrentProducers:
                 format: int32
                 type: integer
+              probePlacementTemplateRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  name:
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
               probeResources:
                 maxProperties: 1024
                 nullable: true
@@ -128,6 +152,18 @@ spec:
               schedulerImage:
                 maxLength: 16384
                 type: string
+              schedulerPlacementTemplateRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  name:
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
               schedulerResources:
                 maxProperties: 1024
                 nullable: true
@@ -479,7 +515,7 @@ spec:
         title: BallistaCluster
         type: object
         x-kubernetes-validations:
-        - rule: self.spec.release == oldSelf.spec.release && self.spec.schedulerImage == oldSelf.spec.schedulerImage && self.spec.executorImage == oldSelf.spec.executorImage && self.spec.artifactStoreRef == oldSelf.spec.artifactStoreRef && self.spec.executorReplicas == oldSelf.spec.executorReplicas && self.spec.targetPartitions == oldSelf.spec.targetPartitions && self.spec.maxConcurrentProducers == oldSelf.spec.maxConcurrentProducers && self.spec.executor == oldSelf.spec.executor && has(self.spec.schedulerResources) == has(oldSelf.spec.schedulerResources) && (!has(self.spec.schedulerResources) || self.spec.schedulerResources == oldSelf.spec.schedulerResources) && has(self.spec.probeResources) == has(oldSelf.spec.probeResources) && (!has(self.spec.probeResources) || self.spec.probeResources == oldSelf.spec.probeResources)
+        - rule: self.spec.release == oldSelf.spec.release && self.spec.schedulerImage == oldSelf.spec.schedulerImage && self.spec.executorImage == oldSelf.spec.executorImage && self.spec.artifactStoreRef == oldSelf.spec.artifactStoreRef && self.spec.executorReplicas == oldSelf.spec.executorReplicas && self.spec.targetPartitions == oldSelf.spec.targetPartitions && self.spec.maxConcurrentProducers == oldSelf.spec.maxConcurrentProducers && self.spec.executor == oldSelf.spec.executor && has(self.spec.schedulerResources) == has(oldSelf.spec.schedulerResources) && (!has(self.spec.schedulerResources) || self.spec.schedulerResources == oldSelf.spec.schedulerResources) && has(self.spec.probeResources) == has(oldSelf.spec.probeResources) && (!has(self.spec.probeResources) || self.spec.probeResources == oldSelf.spec.probeResources) && has(self.spec.schedulerPlacementTemplateRef) == has(oldSelf.spec.schedulerPlacementTemplateRef) && (!has(self.spec.schedulerPlacementTemplateRef) || self.spec.schedulerPlacementTemplateRef == oldSelf.spec.schedulerPlacementTemplateRef) && has(self.spec.executorPlacementTemplateRef) == has(oldSelf.spec.executorPlacementTemplateRef) && (!has(self.spec.executorPlacementTemplateRef) || self.spec.executorPlacementTemplateRef == oldSelf.spec.executorPlacementTemplateRef) && has(self.spec.probePlacementTemplateRef) == has(oldSelf.spec.probePlacementTemplateRef) && (!has(self.spec.probePlacementTemplateRef) || self.spec.probePlacementTemplateRef == oldSelf.spec.probePlacementTemplateRef)
         - rule: self.metadata.name == 'default'
     served: true
     storage: true

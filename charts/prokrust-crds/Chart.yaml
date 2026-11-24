@@ -2,8 +2,8 @@ apiVersion: v2
 name: prokrust-crds
 description: Shared Prokrust Kubernetes API definitions
 type: application
-version: 0.23.0-rc.1
-appVersion: 0.23.0-rc.1
+version: 0.24.0-rc.1
+appVersion: 0.24.0-rc.1
 kubeVersion: '>=1.30.0-0'
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/prokrust-crds
 sources:

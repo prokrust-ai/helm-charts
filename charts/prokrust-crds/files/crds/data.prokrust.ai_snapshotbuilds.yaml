@@ -47,6 +47,18 @@ spec:
                     format: uint32
                     minimum: 1.0
                     type: integer
+                  placementTemplateRef:
+                    maxProperties: 1024
+                    nullable: true
+                    properties:
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    required:
+                    - name
+                    type: object
                   preparation:
                     maxProperties: 1024
                     nullable: true

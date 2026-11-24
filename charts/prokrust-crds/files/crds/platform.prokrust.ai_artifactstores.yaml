@@ -139,6 +139,18 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - rule: (self.backend == 'S3' && has(self.s3) && !has(self.gcs)) || (self.backend == 'GCS' && has(self.gcs) && !has(self.s3))
+              probePlacementTemplateRef:
+                maxProperties: 1024
+                nullable: true
+                properties:
+                  name:
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
               probeResources:
                 maxProperties: 1024
                 nullable: true

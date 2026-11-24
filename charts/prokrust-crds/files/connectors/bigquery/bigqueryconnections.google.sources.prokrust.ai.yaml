@@ -33,6 +33,11 @@ spec:
                   message: Only federation authentication requires a Google workload identity provider audience
               required: [project, billingProject, location, datasets, expectedServiceAccountEmail]
               properties:
+                placementTemplateRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
                 authMode: {type: string, enum: [serviceAccountKey, impersonation, federation]}
                 federationAudience: {type: string, maxLength: 256, pattern: '^//iam[.]googleapis[.]com/projects/[0-9]{1,20}/locations/global/workloadIdentityPools/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]/providers/[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$'}
                 project: {type: string, minLength: 6, maxLength: 30, pattern: "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"}
