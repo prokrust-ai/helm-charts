@@ -1,6 +1,6 @@
-controllerImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:b7a65198ecb2624ee3c63db2644ef5c853d8d152f06ce4e7da4164277635b6eb
-runtimeImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:b7a65198ecb2624ee3c63db2644ef5c853d8d152f06ce4e7da4164277635b6eb
-descriptorDigest: sha256:ac0ce5d113dddf4ce1010f8984ee22b7b9897964a3be9198fb454fc5be8c6e4a
+controllerImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:eda0ab109ab752e375a2afe5ef23dbade43b3732eebceb7f0dcc86f02c2e87cc
+runtimeImage: ar.prokrust.io/prokrust/connector-iceberg@sha256:eda0ab109ab752e375a2afe5ef23dbade43b3732eebceb7f0dcc86f02c2e87cc
+descriptorDigest: sha256:76f5edbf7c0e4446666b3890c54a7aea559f9aa4e53638aa2154905b13f0ffb9
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []
