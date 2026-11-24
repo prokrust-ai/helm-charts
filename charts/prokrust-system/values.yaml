@@ -14,6 +14,7 @@ connectors:
 global:
   awsRegion: ''
   networkFamily: IPv4
+  placementTemplates: {}
   workloadPlacementProfile: arm64
   imagePullSecrets: []
   dnsServerCIDRs: []
@@ -64,7 +65,7 @@ global:
 images:
   operator:
     repository: ar.prokrust.io/prokrust/operator
-    digest: sha256:f0600f2a0552970b788327760f5841688d142d08574edc499b71eb9c02195e8c
+    digest: sha256:87dfbff2d4256f998a20bcce29640471d019b69de78a6b146a1216ecfc6bd1df
     pullPolicy: IfNotPresent
 controllers:
   applicationReplicas: 1
@@ -96,32 +97,32 @@ artifactCredentials:
   secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
 producerProvenance:
   dataJob:
-    version: 0.13.0-rc.1
+    version: 0.14.0-rc.1
     images:
-    - ar.prokrust.io/prokrust/data-job@sha256:65bfb6fbb828df79a48b9baeca3d721072bd26319135591083b06011e1957581
+    - ar.prokrust.io/prokrust/data-job@sha256:ce1a254d437a4f9a38505e11d2162d968a2fa41f5176dfd131c236c9c5910fcb
   trainer:
-    version: 0.11.0-rc.1
+    version: 0.12.0-rc.1
     images:
-    - ar.prokrust.io/prokrust/trainer-cuda@sha256:7697b034af65d75e9e22ace78e1de2ffe8902257c701b8b511c9f48a1719eac1
-    - ar.prokrust.io/prokrust/trainer@sha256:6f500c234cc66450e4b7e2a61c4c7f25f5f7f0f0b60d187805a6f2d9386777b7
+    - ar.prokrust.io/prokrust/trainer-cuda@sha256:90db7742c5b2e0f1e204aaa9b0aa6e5041c48f18b1967e2836f3a25d93256735
+    - ar.prokrust.io/prokrust/trainer@sha256:26e870db195ac120161ba55aa5063ee0fb484c20b5ddefab111e484c466edf45
   batchPredictor:
-    version: 0.11.0-rc.1
+    version: 0.12.0-rc.1
     images:
-    - ar.prokrust.io/prokrust/batch-predictor@sha256:1a84f9abc224c765b8e947b55fe5d6ef38553f5505b0df4d56f87f572a6e1544
+    - ar.prokrust.io/prokrust/batch-predictor@sha256:ac423747369445a3cb620914c5436fb0e39af0d7f180b7da1d7b4bf453c8ae08
 components:
   data-job:
-    version: 0.13.0-rc.1
+    version: 0.14.0-rc.1
   trainer:
-    version: 0.11.0-rc.1
+    version: 0.12.0-rc.1
   batch-predictor:
-    version: 0.11.0-rc.1
+    version: 0.12.0-rc.1
   serving:
-    version: 0.11.0-rc.2
+    version: 0.12.0-rc.1
   web-api:
-    version: 0.30.0-rc.1
+    version: 0.31.0-rc.2
   ballista:
-    version: 0.4.0
-    chartVersion: 0.4.0
+    version: 0.4.1-rc.1
+    chartVersion: 0.4.1-rc.1
 licensing:
   serverURL: https://license.prokrust.ai
   credentialSecret: prokrust-license-credential
@@ -165,7 +166,7 @@ web-api:
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:759e853b8a5a7d41e39219d37adcd3ba53ac9a326215e071db93d4b63f37a20f
+      digest: sha256:5eb54770b8714a2163f6c26d9680381fc278f90e68b9c073b0304a4d21c22964
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []
@@ -181,4 +182,4 @@ profiling:
   storageSize: 8Gi
   storageClassName: ''
   nsightToolsPVC: ''
-crdBundleSha256: 5a1536205b4519785829fc3400bed5346c3bcf4509072d8e5f87b98799c0fba8
+crdBundleSha256: cd4d394c02ab9c6ded8020b2f866587145ed76cf20588f5a9713a1d43d31ed12

@@ -1,21 +1,21 @@
 dependencies:
 - name: connector-bigquery
   repository: oci://ar.prokrust.io/charts
-  version: 1.3.0-rc.1
+  version: 1.4.0-rc.1
 - name: connector-gcs
   repository: oci://ar.prokrust.io/charts
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
 - name: connector-iceberg
   repository: oci://ar.prokrust.io/charts
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
 - name: connector-paimon
   repository: oci://ar.prokrust.io/charts
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
 - name: connector-s3
   repository: oci://ar.prokrust.io/charts
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
 - name: connector-synthetic
   repository: oci://ar.prokrust.io/charts
-  version: 1.2.0-rc.1
-digest: sha256:1cf31c1c445f4b468cd568d875220ac712aa9d419b7117ed4fe74f7c73a87d17
+  version: 1.3.0-rc.1
+digest: sha256:e318dc917d2ed698ea461aaadc1dc8a98022d890ade8520723b797c1659cfb6b
 generated: '1970-01-01T00:00:00Z'

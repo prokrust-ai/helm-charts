@@ -93,6 +93,10 @@ spec:
             {{- end }}
             - name: PROKRUST_WORKFLOW_SCHEDULING_PROFILE
               value: {{ include "operator.schedulingProfile" . | quote }}
+            {{- with .Values.global.placementTemplates }}
+            - name: PROKRUST_PLACEMENT_TEMPLATES
+              value: {{ . | toJson | quote }}
+            {{- end }}
             - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
               value: {{ include "operator.placementProfile" . | quote }}
             - name: PROKRUST_WORKFLOW_IMAGE_PULL_SECRETS
@@ -257,6 +261,10 @@ spec:
             {{- end }}
             - name: PROKRUST_NETWORK_FAMILY
               value: {{ include "operator.networkFamily" . | quote }}
+            {{- with .Values.global.placementTemplates }}
+            - name: PROKRUST_PLACEMENT_TEMPLATES
+              value: {{ . | toJson | quote }}
+            {{- end }}
             - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
               value: {{ include "operator.placementProfile" . | quote }}
             - name: RP_POD_NAMESPACE

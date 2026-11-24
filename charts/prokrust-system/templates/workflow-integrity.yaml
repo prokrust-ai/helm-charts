@@ -10,6 +10,40 @@ metadata:
     cert-manager.io/inject-ca-from: {{ printf "%s/prokrust-license-webhook" .Release.Namespace | quote }}
   {{- end }}
 webhooks:
+  - name: placement.workspace.prokrust.ai
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: prokrust-license-webhook
+        path: /validate-placement
+        port: 443
+      {{- if .Values.licensing.webhook.caBundle }}
+      caBundle: {{ .Values.licensing.webhook.caBundle | quote }}
+      {{- end }}
+    namespaceSelector:
+      matchLabels:
+        prokrust.ai/installation: {{ .Release.Namespace | quote }}
+    rules:
+      - apiGroups: [platform.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [prokrustpolicies, ballistaclusters, artifactstores]
+        scope: Namespaced
+      - apiGroups: [ml.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [trainingstudies, trainingruns, predictionruns, inferenceendpoints]
+        scope: Namespaced
+      - apiGroups: [data.prokrust.ai]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [snapshotpreparations, snapshotbuilds]
+        scope: Namespaced
   - name: lifecycle.snapshot.prokrust.ai
     admissionReviewVersions: ["v1"]
     sideEffects: None

@@ -9,31 +9,31 @@ sources:
 dependencies:
 - name: connector-bigquery
   alias: bigquery
-  version: 1.3.0-rc.1
+  version: 1.4.0-rc.1
   condition: bigquery.enabled
   repository: oci://ar.prokrust.io/charts
 - name: connector-gcs
   alias: gcs
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
   condition: gcs.enabled
   repository: oci://ar.prokrust.io/charts
 - name: connector-iceberg
   alias: iceberg
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
   condition: iceberg.enabled
   repository: oci://ar.prokrust.io/charts
 - name: connector-paimon
   alias: paimon
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
   condition: paimon.enabled
   repository: oci://ar.prokrust.io/charts
 - name: connector-s3
   alias: s3
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
   condition: s3.enabled
   repository: oci://ar.prokrust.io/charts
 - name: connector-synthetic
   alias: synthetic
-  version: 1.2.0-rc.1
+  version: 1.3.0-rc.1
   condition: synthetic.enabled
   repository: oci://ar.prokrust.io/charts

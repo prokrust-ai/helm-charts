@@ -14,6 +14,7 @@
         "networkPolicy"
       ],
       "properties": {
+        "placementTemplates": { "type": "object" },
         "workloadPlacementProfile": {
           "type": "string",
           "default": "arm64",

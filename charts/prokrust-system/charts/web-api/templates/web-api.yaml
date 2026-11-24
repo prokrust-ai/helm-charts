@@ -98,6 +98,14 @@ spec:
           env:
             - name: PROKRUST_WEB_API_BIND
               value: {{ printf "%s:8080" (include "web-api.bindHost" .) | quote }}
+            {{- with .Values.global.placementTemplates }}
+            - name: PROKRUST_PLACEMENT_TEMPLATES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with .ServingWorkloadPlacementProfile }}
+            - name: PROKRUST_SERVING_WORKLOAD_PLACEMENT_PROFILE
+              value: {{ . | quote }}
+            {{- end }}
             - name: PROKRUST_WORKLOAD_PLACEMENT_PROFILE
               value: {{ .Values.global.workloadPlacementProfile | default "arm64" | quote }}
             {{- if .Values.webApi.browserOrigin }}
