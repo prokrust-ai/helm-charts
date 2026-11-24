@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-ballista-images
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ballista.labels" . | nindent 4 }}
+data:
+  componentVersion: {{ .Chart.AppVersion | quote }}
+{{- range $key, $image := .Values.images }}
+  {{ $key }}: {{ include "ballista.image" $image | quote }}
+{{- end }}

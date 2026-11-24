@@ -1,0 +1,31 @@
+{{- $gcp := .Values.global.networkPolicy.gcpAuth -}}
+{{- if and $gcp.enabled (or $gcp.metadataEndpoints $gcp.googleApiCIDRs) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prokrust-ballista-gcp-auth-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ballista.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ballista-gate
+  policyTypes: [Egress]
+  egress:
+    {{- range $gcp.metadataEndpoints }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        {{- range .ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+    {{- if $gcp.googleApiCIDRs }}
+    - to:
+        {{- range $gcp.googleApiCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+{{- end }}

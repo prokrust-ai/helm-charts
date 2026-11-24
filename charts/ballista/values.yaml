@@ -1,0 +1,40 @@
+global:
+  networkFamily: IPv4
+  imagePullSecrets: []
+  networkPolicy:
+    gcpAuth:
+      enabled: false
+      metadataEndpoints: []
+      googleApiCIDRs: []
+    dns:
+      namespaceSelector:
+        kubernetes.io/metadata.name: kube-system
+      podSelector:
+        k8s-app: kube-dns
+    apiServerEndpoints: []
+    sourceStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    artifactStore:
+      cidrs: []
+      podSelector: {}
+      port: 443
+    ballista:
+      podSelector:
+        app.kubernetes.io/name: ballista-gate
+      ports:
+      - 50050
+      - 50051
+      - 50052
+    inferenceClientPodSelector:
+      prokrust.ai/inference-client: 'true'
+images:
+  ballistaScheduler:
+    repository: ar.prokrust.io/prokrust/ballista-scheduler
+    digest: sha256:ba6156f21716b24f6ae4b34c93a21a7f0ac7bca14c952d3a255db655dab81aed
+    pullPolicy: IfNotPresent
+  ballistaExecutor:
+    repository: ar.prokrust.io/prokrust/ballista-executor
+    digest: sha256:92c1305f64c11fce542532f043b6130502be23f8f3adee74d54e2dbc20b551ad
+    pullPolicy: IfNotPresent
