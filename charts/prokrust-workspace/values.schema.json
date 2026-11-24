@@ -1793,6 +1793,12 @@
                     ],
                     "type": "object",
                     "additionalProperties": false
+                  },
+                  "placementTemplates": {
+                    "$ref": "#/properties/workspace/properties/placementTemplates"
+                  },
+                  "placementDefaults": {
+                    "$ref": "#/properties/workspace/properties/placementDefaults"
                   }
                 },
                 "required": [
@@ -2055,6 +2061,25 @@
                     "type": "null"
                   }
                 ]
+              },
+              "probePlacementTemplateRef": {
+                "maxProperties": 1024,
+                "properties": {
+                  "name": {
+                    "maxLength": 63,
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false
               },
               "probeResources": {
                 "maxProperties": 1024,
@@ -2667,6 +2692,15 @@
                     "default": 180
                   }
                 }
+              },
+              "schedulerPlacementTemplateRef": {
+                "$ref": "#/properties/tenantDefaults/items/properties/artifactStore/properties/probePlacementTemplateRef"
+              },
+              "executorPlacementTemplateRef": {
+                "$ref": "#/properties/tenantDefaults/items/properties/artifactStore/properties/probePlacementTemplateRef"
+              },
+              "probePlacementTemplateRef": {
+                "$ref": "#/properties/tenantDefaults/items/properties/artifactStore/properties/probePlacementTemplateRef"
               }
             },
             "required": [
@@ -3059,6 +3093,104 @@
             },
             "gcpRules": {
               "$ref": "#/properties/tenantDefaults/items/properties/policy/properties/authorization/properties/connections/properties/gcpRules"
+            }
+          }
+        },
+        "placementTemplates": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowedRoles"
+            ],
+            "properties": {
+              "allowedRoles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "trainer",
+                    "materialization",
+                    "predictor",
+                    "snapshotTable",
+                    "snapshotGraph",
+                    "serving",
+                    "ballistaScheduler",
+                    "ballistaExecutor",
+                    "ballistaProbe",
+                    "artifactStoreProbe",
+                    "connectorRuntime",
+                    "connectorProbe"
+                  ]
+                }
+              },
+              "nodeSelector": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "tolerations": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "affinity": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nodeAffinity": {
+                    "type": "object"
+                  },
+                  "podAffinity": {
+                    "type": "object"
+                  },
+                  "podAntiAffinity": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "placementDefaults": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "trainer",
+              "materialization",
+              "predictor",
+              "snapshotTable",
+              "snapshotGraph",
+              "serving",
+              "ballistaScheduler",
+              "ballistaExecutor",
+              "ballistaProbe",
+              "artifactStoreProbe",
+              "connectorRuntime",
+              "connectorProbe"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 63,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              }
             }
           }
         }

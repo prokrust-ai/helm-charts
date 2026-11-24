@@ -71,3 +71,23 @@ Create the corresponding connections and select the ready GCS staging connection
 - If existing defaults are owned outside the release, keep that manager and set `workspace.mode: external`. Previous installations with explicitly empty `tenantDefaults: []` also retain their infrastructure-only behavior. An installation that previously omitted these values must record its choice before upgrading. Helm and Argo CD render the same ownership decision.
 - Managed storage creates `prokrust-ballista-scheduler` and `prokrust-ballista-executor` ServiceAccounts. If another application already owns them, set `workspace.ballistaAccounts: external` and configure both accounts for `ballistaAuth`. Existing workspace-owned workers receive their writer annotations from Helm.
 - Before switching resource owners, drain active workloads and compare the fully rendered manifests. Preserve the default objects and their UIDs. Remove overlapping declarations from the previous manager only with pruning disabled during the transfer. Supply ownership metadata explicitly for a deliberate handoff; the enrollment hook verifies the release-name annotation `prokrust.ai/workspace-chart`, and native Helm checks its release ownership metadata. Switching to external mode while pruning is enabled can delete chart-managed resources.
+
+
+### Workspace pod placement
+
+The installation administrator authorizes named templates in the system chart's `global.placementTemplates`. The managed workspace chart accepts an exact subset in `workspace.placementTemplates`. Set `workspace.placementDefaults` to choose a default per pod role. Existing full-spec policies use the same fields under `spec.execution`. With external ownership, configure the policy at its source.
+
+```yaml
+workspace:
+  placementTemplates:
+    gpu-training:
+      allowedRoles: [trainer]
+      nodeSelector:
+        workload.example.com/pool: gpu
+      tolerations:
+        - {key: dedicated, operator: Equal, value: training, effect: NoSchedule}
+  placementDefaults:
+    trainer: {name: gpu-training}
+```
+
+Supply these fields alongside the workspace's storage settings. A workload can choose another template approved for its role. Installation architecture and scheduling constraints still apply. GPU requests and limits are configured separately. Existing frozen workflow attempts retain their pod specification. Ballista changes to immutable scheduling or capacity child templates require explicit cluster replacement.

@@ -1,4 +1,4 @@
-supportedSystemVersion: 0.26.0-rc.1
+supportedSystemVersion: 0.28.0-rc.1
 connectors:
   enabled: false
   connectionResources: []
@@ -64,11 +64,11 @@ legacyWorkflowTemplates:
   enabled: false
 serving:
   enabled: false
-  componentVersion: 0.11.0-rc.2
+  componentVersion: 0.12.0-rc.1
   images:
     modelServer:
       repository: ar.prokrust.io/prokrust/model-server
-      digest: sha256:ba1c037ed22ac69cf40f5a5dca590e68c601fd366413f8f175e519cfc2b7cd50
+      digest: sha256:a2f2b3cae9eb70dd454b4eac5858492bb5c6b0dcb8ee5c7c6dbbe9c901c7f563
       pullPolicy: IfNotPresent
 workspace: {}
 licensing:
@@ -83,38 +83,38 @@ access:
   serviceAccounts: []
   bindings: {}
 data-job:
-  componentVersion: 0.13.0-rc.1
+  componentVersion: 0.14.0-rc.1
   images:
     dataJob:
       repository: ar.prokrust.io/prokrust/data-job
-      digest: sha256:65bfb6fbb828df79a48b9baeca3d721072bd26319135591083b06011e1957581
+      digest: sha256:ce1a254d437a4f9a38505e11d2162d968a2fa41f5176dfd131c236c9c5910fcb
       pullPolicy: IfNotPresent
 trainer:
-  componentVersion: 0.11.0-rc.1
+  componentVersion: 0.12.0-rc.1
   images:
     trainer:
       repository: ar.prokrust.io/prokrust/trainer
-      digest: sha256:6f500c234cc66450e4b7e2a61c4c7f25f5f7f0f0b60d187805a6f2d9386777b7
+      digest: sha256:26e870db195ac120161ba55aa5063ee0fb484c20b5ddefab111e484c466edf45
       pullPolicy: IfNotPresent
     trainerCuda:
       repository: ar.prokrust.io/prokrust/trainer-cuda
-      digest: sha256:7697b034af65d75e9e22ace78e1de2ffe8902257c701b8b511c9f48a1719eac1
+      digest: sha256:90db7742c5b2e0f1e204aaa9b0aa6e5041c48f18b1967e2836f3a25d93256735
       pullPolicy: IfNotPresent
 batch-predictor:
-  componentVersion: 0.11.0-rc.1
+  componentVersion: 0.12.0-rc.1
   images:
     batchPredictor:
       repository: ar.prokrust.io/prokrust/batch-predictor
-      digest: sha256:1a84f9abc224c765b8e947b55fe5d6ef38553f5505b0df4d56f87f572a6e1544
+      digest: sha256:ac423747369445a3cb620914c5436fb0e39af0d7f180b7da1d7b4bf453c8ae08
       pullPolicy: IfNotPresent
 ballista:
-  componentVersion: 0.4.0
+  componentVersion: 0.4.1-rc.1
   images:
     ballistaScheduler:
       repository: ar.prokrust.io/prokrust/ballista-scheduler
-      digest: sha256:ae826346473fb13733701ee740ded8106d78ee43df5018989539fdb440a23645
+      digest: sha256:ba6156f21716b24f6ae4b34c93a21a7f0ac7bca14c952d3a255db655dab81aed
       pullPolicy: IfNotPresent
     ballistaExecutor:
       repository: ar.prokrust.io/prokrust/ballista-executor
-      digest: sha256:d57e702c0086c2dd9eca8dc37c72c5531eadaed3a656ec3978d2314b9cb7269d
+      digest: sha256:92c1305f64c11fce542532f043b6130502be23f8f3adee74d54e2dbc20b551ad
       pullPolicy: IfNotPresent

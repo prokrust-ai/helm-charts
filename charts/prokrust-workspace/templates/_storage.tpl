@@ -2,6 +2,7 @@
 {{- $workspace := .Values.workspace | default dict -}}
 {{- if and .Values.tenantDefaults (eq $workspace.mode "external") }}{{ fail "external mode cannot own tenantDefaults" }}{{ end -}}
 {{- if and $workspace.connectionRules (not $workspace.storage) }}{{ fail "workspace.connectionRules requires managed workspace.storage" }}{{ end -}}
+{{- if and (or $workspace.placementTemplates $workspace.placementDefaults) (not $workspace.storage) }}{{ fail "workspace placement requires managed workspace.storage; configure external policies directly" }}{{ end -}}
 {{- if $workspace.storage -}}
   {{- if or (eq $workspace.mode "external") .Values.tenantDefaults }}{{ fail "workspace.storage cannot be combined with external ownership or tenantDefaults" }}{{ end -}}
   true
@@ -130,6 +131,18 @@ federation:
   {{- if or (ne $image (index $release.images $key)) (not (regexMatch "@sha256:[0-9a-f]{64}$" $image)) (hasSuffix (repeat 64 "0") $image) -}}
     {{- fail (printf "Managed workspace image %s must match the verified workspace runtime lock" $key) -}}
   {{- end -}}
+{{- end -}}
+{{- with .Values.workspace.placementTemplates -}}
+{{- $_ := set $policy.execution "placementTemplates" . -}}
+{{- end -}}
+{{- with .Values.workspace.placementDefaults -}}
+{{- range $role, $ref := . -}}
+{{- $template := index ($.Values.workspace.placementTemplates | default dict) $ref.name -}}
+{{- if not (and $template (has $role ($template.allowedRoles | default list))) -}}
+{{- fail (printf "workspace.placementDefaults.%s requires a named template allowed for this role" $role) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $policy.execution "placementDefaults" . -}}
 {{- end -}}
 {{- $_ := set $policy.execution "images" $images -}}
 {{- $_ := set $policy.execution "release" (dict "mode" "Qualification" "lock" $release.lock) -}}
