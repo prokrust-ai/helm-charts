@@ -219,6 +219,10 @@ spec:
   policyTypes: ["Ingress"]
   ingress:
     - from:
+        {{- if and .Values.connectors.artifactAccess .Values.connectors.artifactNetworkPolicy.enabled }}
+        - podSelector:
+            matchExpressions: [{key: prokrust.ai/connector-uid, operator: Exists}]
+        {{- end }}
         - podSelector:
             matchLabels:
               prokrust.ai/workload: product

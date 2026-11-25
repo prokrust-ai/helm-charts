@@ -2984,6 +2984,77 @@
               }
             }
           }
+        },
+        "artifactAccess": {
+          "type": "object",
+          "maxProperties": 128,
+          "patternProperties": {
+            "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "serviceAccount": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "maxLength": 63,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    },
+                    "create": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "create"
+                  ]
+                },
+                "auth": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/definitions/s3WorkspaceAuth"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "provider": {
+                          "const": "ADC"
+                        },
+                        "gcpServiceAccount": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9.-]+@[a-z0-9.-]+\\.gserviceaccount\\.com$"
+                        }
+                      },
+                      "required": [
+                        "provider"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "serviceAccount",
+                "auth"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "artifactNetworkPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled"
+          ]
         }
       },
       "required": [

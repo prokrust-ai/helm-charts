@@ -2,6 +2,9 @@ supportedSystemVersion: 0.28.0-rc.1
 connectors:
   enabled: false
   connectionResources: []
+  artifactAccess: {}
+  artifactNetworkPolicy:
+    enabled: true
 global:
   awsRegion: ''
   networkFamily: IPv4

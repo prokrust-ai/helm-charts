@@ -38,6 +38,40 @@ Set `global.networkPolicy.artifactStore.cidrs` to the approved storage endpoint 
 
 The chart uses release-pinned images, workflow programs, a digest-pinned runtime lock and the shipped Ballista configuration. The policy starts in Qualification mode. Ballista starts on demand with one executor and releases idle compute after 180 seconds. Capacity admission, probes and cloud connectivity still need to succeed in the installed cluster. Enable `serving.enabled` in both System and Workspace when using KServe. Configure `connectors.enabled` and exact `connectionResources` when using connector controllers.
 
+## Give connector runtimes artifact access
+
+A source connector can browse its source before it has permission to read scan plans or stage snapshot results. Configure the artifact identity independently of its source credentials. For example, a BigQuery source can keep Google federation and use a dedicated IRSA role for S3 staging.
+
+In the **System** chart set `connectors.bigquery.runtimeServiceAccountName` to the exact workspace ServiceAccount below. For IRSA, include `sts.amazonaws.com` in `connectors.bigquery.runtimeTokenAudiences` alongside any required source audience. Keep the source token audience and source egress configured on the provider.
+
+In the **Workspace** chart:
+
+```yaml
+connectors:
+  enabled: true
+  artifactAccess:
+    bigquery:
+      serviceAccount: {name: prokrust-connector-runtime-bigquery, create: true}
+      auth: {provider: IRSA, roleArn: arn:aws:iam::123456789012:role/team-connector-stage}
+global:
+  networkPolicy:
+    artifactStore: {cidrs: [192.0.2.0/24], port: 443}
+    awsAuth: {enabled: true, stsCIDRs: [198.51.100.12/32]}
+```
+
+Replace example CIDRs with the artifact and regional STS destinations for your cluster. Each provider shares its configured runtime account across that provider's connections in this namespace. Bind cloud trust to the exact namespace, account and required token audience. Scope versioned control reads to `<store-prefix>/connector-control/<workspace-uid>/<connection-uid>/` and staging reads/writes to the corresponding `connector-staging` prefix. Include prefix-constrained listing if required for immutable-object absence checks. Give cleanup permissions to the designated cleanup owner. Runtime-access probes remove their current sentinel keys with a normal object delete. On versioned buckets, configure a lifecycle rule for the probe prefixes to expire noncurrent sentinel versions and expired delete markers according to your retention policy. The cleanup identity needs no permission to delete specific object versions (S3 `s3:DeleteObjectVersion`). Final snapshot destinations remain under the publisher identity.
+
+| Artifact credential | Workspace `auth` | Installation configuration |
+|---|---|---|
+| S3 IRSA | `{provider: IRSA, roleArn: ...}` | Configure role trust, STS token audience and STS egress. |
+| EKS Pod Identity | `{provider: EKSPodIdentity, roleArn: ...}` | Associate the role with this ServiceAccount in EKS. Enable `global.networkPolicy.awsAuth.enabled` and `podIdentityAgentEnabled`. Configure the provider's token allowlist for the EKS agent's audience. |
+| S3 access keys | `{secretName: prokrust-connector-runtime-artifact-team}` | Set the System provider's `runtimeArtifactCredentialsSecretName` to the same namespace-local Secret. Configure its trusted projection writer when applicable. Provision `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optionally `AWS_SESSION_TOKEN` through the Secret owner. |
+| GCS workload identity | `{provider: ADC}` | Bind the Kubernetes identity in Google Cloud and enable `global.networkPolicy.gcpAuth` with its metadata and Google API endpoints. For GKE service-account impersonation, add `gcpServiceAccount: connector@example.iam.gserviceaccount.com` to `auth`. |
+
+The workspace chart creates a namespace-local egress policy for connector pods identified by their connection UID label. Its destinations come from the existing artifact store and configured credential mode. A same-namespace artifact store selected by pod labels also receives connector ingress. Provider-specific policies continue to supply DNS and source access. When those policies or an external network owner already restrict artifact traffic per provider, set `connectors.artifactNetworkPolicy.enabled: false`. The chart will leave connector artifact egress and the artifact-store ingress peers to that owner. Cloud IAM enforces workspace and object-prefix permissions. Connector runtimes using GCS need ADC supplied to the runtime itself. The workspace worker's federation ConfigMap applies to the worker pods.
+
+**Upgrade an existing installation.** Set `serviceAccount.create: false` to keep the existing ServiceAccount in its current GitOps owner. Apply the role annotation or Pod Identity association there, install the matching Workspace chart, then roll the connector runtime pods through the provider controller so cloud admission injects the credentials. For a fresh installation, `create: true` creates the runtime account with API-token automount disabled. Authorize the installer to manage this protected ServiceAccount in the provider admission policy. Verify source browsing and a fresh snapshot's versioned control read and staging write with the actual runtime identity.
+
 ## Authorize provider connections
 
 Under `workspace.connectionRules`, append S3 rules through `rules` or GCS and BigQuery rules through `gcpRules`. Each entry authorizes one connection name and kind for Source or Destination operations. The generated Artifact rule is reserved for the managed store. For example, an S3 workspace exporting to BigQuery can authorize its destination and GCS staging connection together:
