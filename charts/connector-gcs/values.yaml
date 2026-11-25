@@ -1,6 +1,6 @@
-controllerImage: ar.prokrust.io/prokrust/connector-gcs@sha256:24137ceb587b18c582c0c7ea27c4ae87b99e543427b5c799c589142809b03d2b
-runtimeImage: ar.prokrust.io/prokrust/connector-gcs@sha256:24137ceb587b18c582c0c7ea27c4ae87b99e543427b5c799c589142809b03d2b
-descriptorDigest: sha256:ee35655f5881c2eb1bbacea02cc581fe6b56e213bbb57200194effc1187d3d4a
+controllerImage: ar.prokrust.io/prokrust/connector-gcs@sha256:ad97985c8a2236d598a3904d6408f3e071f073fd70e731905cc37f71749aee1c
+runtimeImage: ar.prokrust.io/prokrust/connector-gcs@sha256:ad97985c8a2236d598a3904d6408f3e071f073fd70e731905cc37f71749aee1c
+descriptorDigest: sha256:d4b1108131dd838359cfcff2a182607cbfaca6b4bf7dfb79247959a138bbbdc9
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []
