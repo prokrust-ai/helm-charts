@@ -1,0 +1,123 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the controller accepted the graph specification for this generation. If a table is missing, the controller can report `True` before it checks relation columns and their types against that table.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether the controller resolved the tables and publication dependencies for this graph.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the controller published the graph definition artifact for this generation. Read `status.artifact` for its location. Inspect a GraphSnapshot for materialized graph data.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The graph references a table named `orders`. The controller reports `Accepted=True` for the definition. It reports `Ready=False` because it cannot publish this generation. The `DependenciesReady` message identifies the missing table.",
+    "nextCheck": "Check `tableRef.name` under `spec.tables`. If `orders` exists in the graph’s workspace, inspect its [Table conditions](/reference/kubernetes/data.prokrust.ai/v1beta1/table/#conditions). When the dependency recovers, look for `Ready=True` at the graph’s current generation.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Table orders is absent or not ready.",
+          "observedGeneration": 3,
+          "reason": "DependencyNotReady",
+          "status": "False",
+          "type": "DependenciesReady"
+        }
+      ],
+      "observedGeneration": 3,
+      "phase": "Blocked"
+    },
+    "title": "When a table is missing"
+  },
+  "kind": "Graph",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "The controller accepted the specification for this pass. Check `DependenciesReady` and `Ready` before using the graph.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "Accepted",
+      "guidance": "The graph definition failed validation. Read the `GRAPH_INVALID` diagnostic and correct the table aliases, relation keys, or types it identifies.",
+      "reason": "InvalidSpec",
+      "status": "False"
+    },
+    {
+      "conditionType": "Accepted",
+      "guidance": "Reconciliation stopped before the controller recorded a validation result. Use the diagnostic code and message to fix the underlying problem.",
+      "reason": "NotEvaluated",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The controller resolved the required dependencies. Check `Ready` to see whether the definition was published.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "A required table, policy, or store is missing or unready. Follow the resource named in the message and check its status.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The graph specification is invalid. Correct the validation diagnostic before checking the dependencies again.",
+      "reason": "NotEvaluated",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The artifact identity is missing an authorized binding. Check the policy binding for the controller identity, provider, and artifact connection named in the diagnostic.",
+      "reason": "ArtifactAuthorizationDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The controller could not finish checking dependencies. Inspect the graph diagnostic for the failed Kubernetes read, artifact read, or configuration check.",
+      "reason": "ReconciliationFailed",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The current definition is published. Use `status.artifact` and `status.semanticDigest` to identify it.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Publication is waiting for a dependency. Use the condition message to find the unavailable table, policy, or store.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The current definition cannot be published. Use `status.diagnostics` to find the invalid part of `spec`.",
+      "reason": "Invalid",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The current definition cannot be qualified or published with this identity. Correct the artifact authorization binding reported in `status.diagnostics`.",
+      "reason": "ArtifactAuthorizationDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Validation completed but the artifact could not be published. Inspect `status.diagnostics` for a storage or publication error and check the `ArtifactStore`.",
+      "reason": "PublicationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Reconciliation failed before publication. Read the diagnostic and check the API, storage, or configuration it identifies.",
+      "reason": "ReconciliationFailed",
+      "status": "False"
+    }
+  ]
+}

@@ -1,0 +1,555 @@
+{
+  "apiVersion": "ml.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the endpoint configuration passed the current check.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports the current or last known available revision. The controller can retain an earlier available revision during an update or license wait.",
+      "type": "Available"
+    },
+    {
+      "meaning": "Reports whether serving support, requested inputs, and policy dependencies are available.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the exact requested model and graph revision is serving.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The operator reports that its KServe serving capability is unavailable.",
+    "nextCheck": "Check the operator serving configuration and the KServe InferenceService CRD.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Current spec is valid.",
+          "observedGeneration": 1,
+          "reason": "ValidSpec",
+          "status": "True",
+          "type": "Accepted"
+        },
+        {
+          "message": "KServe serving capability is unavailable for this installation.",
+          "observedGeneration": 1,
+          "reason": "MissingServingCapability",
+          "status": "False",
+          "type": "DependenciesReady"
+        },
+        {
+          "message": "KServe serving capability is unavailable for this installation.",
+          "observedGeneration": 1,
+          "reason": "MissingServingCapability",
+          "status": "False",
+          "type": "Available"
+        },
+        {
+          "message": "KServe serving capability is unavailable for this installation.",
+          "observedGeneration": 1,
+          "reason": "MissingServingCapability",
+          "status": "False",
+          "type": "Ready"
+        }
+      ]
+    },
+    "title": "Serving capability unavailable"
+  },
+  "kind": "InferenceEndpoint",
+  "narrative": "Inspect `status.failure` on a pending serving revision. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the serving template in `spec.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity. After readiness, compare the loaded model and graph digests with the requested inputs.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "Check DependenciesReady and Ready for this revision.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Inspect the input or policy named in the condition message. If the message names spec.placementTemplateRef, check that the template allows the serving role and matches the installation-approved definition.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The controller recorded the target input identities. Check status.sourceBindings and wait for the revision check.",
+      "reason": "InputsBound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Check the installation capacity and any prior attempts still holding slots.",
+      "reason": "LicenseCapacityUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Ask the installation administrator to inspect activation and admission readiness.",
+      "reason": "LicensePending",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The loaded model artifact digest differs from the published digest. Inspect the Model publication and loaded identity.",
+      "reason": "LoadedModelIdentityMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Check whether serving is enabled in the operator and the KServe InferenceService CRD is installed.",
+      "reason": "MissingServingCapability",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The Model identifies a different producing TrainingRun. Compare its spec.trainingRunRef with the bound producer identity.",
+      "reason": "ModelProvenanceChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The source lacks the producing TrainingRun identity. Inspect the model or study winner reference.",
+      "reason": "ModelProvenanceMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Compare status.desiredRevisionDigest and status.availableRevisionDigest. Inspect the KServe service in status.inferenceServiceRef.",
+      "reason": "RevisionPending",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The TrainingStudy has not finalized its winning Model. Inspect status.winner and status.pendingTrial.",
+      "reason": "StudyWinnerNotFinal",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Available",
+      "guidance": "Inspect status.availableRevisionDigest to identify the last known available revision. Check current Ready and the referenced KServe service for live readiness.",
+      "reason": "RevisionAvailable",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the input or policy named in the condition message. If the message names spec.placementTemplateRef, check that the template allows the serving role and matches the installation-approved definition.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The controller recorded the target input identities. Check status.sourceBindings and wait for the revision check.",
+      "reason": "InputsBound",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The loaded model artifact digest differs from the published digest. Inspect the Model publication and loaded identity.",
+      "reason": "LoadedModelIdentityMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check whether serving is enabled in the operator and the KServe InferenceService CRD is installed.",
+      "reason": "MissingServingCapability",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The Model identifies a different producing TrainingRun. Compare its spec.trainingRunRef with the bound producer identity.",
+      "reason": "ModelProvenanceChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The source lacks the producing TrainingRun identity. Inspect the model or study winner reference.",
+      "reason": "ModelProvenanceMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The TrainingStudy has not finalized its winning Model. Inspect status.winner and status.pendingTrial.",
+      "reason": "StudyWinnerNotFinal",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inputs and policy resolved. Check Ready for the requested revision.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the input or policy named in the condition message. If the message names spec.placementTemplateRef, check that the template allows the serving role and matches the installation-approved definition.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The controller recorded the target input identities. Check status.sourceBindings and wait for the revision check.",
+      "reason": "InputsBound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the installation capacity and any prior attempts still holding slots.",
+      "reason": "LicenseCapacityUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Ask the installation administrator to inspect activation and admission readiness.",
+      "reason": "LicensePending",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The loaded model artifact digest differs from the published digest. Inspect the Model publication and loaded identity.",
+      "reason": "LoadedModelIdentityMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check whether serving is enabled in the operator and the KServe InferenceService CRD is installed.",
+      "reason": "MissingServingCapability",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The Model identifies a different producing TrainingRun. Compare its spec.trainingRunRef with the bound producer identity.",
+      "reason": "ModelProvenanceChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The source lacks the producing TrainingRun identity. Inspect the model or study winner reference.",
+      "reason": "ModelProvenanceMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare status.desiredRevisionDigest and status.availableRevisionDigest. Inspect the KServe service in status.inferenceServiceRef.",
+      "reason": "RevisionPending",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The TrainingStudy has not finalized its winning Model. Inspect status.winner and status.pendingTrial.",
+      "reason": "StudyWinnerNotFinal",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare status.loadedModelDigest and status.loadedGraphDigest with the requested inputs.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

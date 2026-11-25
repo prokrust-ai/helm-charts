@@ -1,0 +1,64 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the installation has a valid entitlement, including a still-valid entitlement after a failed renewal.",
+      "type": "Ready"
+    },
+    {
+      "meaning": "Reports whether the last activation or renewal check succeeded, including a check before renewal is due.",
+      "type": "Renewing"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The activation or renewal check succeeded.",
+    "nextCheck": "Inspect status.renewAfter and status.expiresAt. The controller clears the DNS challenge fields after successful activation.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Installation entitlement active",
+          "observedGeneration": 1,
+          "reason": "Active",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "message": "Installation entitlement active",
+          "observedGeneration": 1,
+          "reason": "Renewed",
+          "status": "True",
+          "type": "Renewing"
+        }
+      ]
+    },
+    "title": "Installation entitlement active"
+  },
+  "kind": "LicenseActivation",
+  "outcomes": [
+    {
+      "conditionType": "Ready",
+      "guidance": "Check license server connectivity and installation credentials. If the message requests DNS verification, publish the TXT record in status.dnsName and status.dnsValue.",
+      "reason": "ActivationPending",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The installation has a valid entitlement. Check status.renewAfter and status.expiresAt.",
+      "reason": "Active",
+      "status": "True"
+    },
+    {
+      "conditionType": "Renewing",
+      "guidance": "Read the condition message. A previous entitlement can remain active until status.expiresAt.",
+      "reason": "RenewalFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Renewing",
+      "guidance": "Activation or the renewal check completed successfully. Inspect status.renewAfter for the next renewal.",
+      "reason": "Renewed",
+      "status": "True"
+    }
+  ]
+}

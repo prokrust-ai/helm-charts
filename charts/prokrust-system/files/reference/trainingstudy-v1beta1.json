@@ -1,0 +1,387 @@
+{
+  "apiVersion": "ml.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the selected graph snapshot and workspace access checks allow input binding.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the controller recorded the exact source identities in status.sourceBindings.",
+      "type": "InputsBound"
+    },
+    {
+      "meaning": "Reports progress selecting inputs, running trials, and publishing the winning model. Read it with status.phase.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The study is running trials for the planned candidates and seeds.",
+    "nextCheck": "Compare status.plannedTrials with status.trials. Follow each child TrainingRun to inspect its progress.",
+    "status": {
+      "conditions": [
+        {
+          "message": "TrainingStudy trials are running.",
+          "observedGeneration": 1,
+          "reason": "NotReady",
+          "status": "False",
+          "type": "Ready"
+        }
+      ],
+      "phase": "Running"
+    },
+    "title": "Trials are running"
+  },
+  "kind": "TrainingStudy",
+  "narrative": "For a trial waiting on scheduling, follow its TrainingRun in `status.trials` and read the child’s `status.failure`. The study copies `spec.template.placementTemplateRef` and `spec.template.materializationPlacementTemplateRef` to each new trial.",
+  "outcomes": [
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The controller recorded the source identities. Inspect status.sourceBindings before following execution.",
+      "reason": "InputsBound",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The controller recorded the source identities. Inspect status.sourceBindings before following execution.",
+      "reason": "InputsBound",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the Kubernetes access review response and the authorization configuration.",
+      "reason": "AuthorizationResponseMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The access check could not complete. Check connectivity and permissions for SubjectAccessReview.",
+      "reason": "AuthorizationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The output identified by the binding no longer exists. Inspect its name and UID in status.sourceBindings.",
+      "reason": "BoundOutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The bound producer disappeared before it published its output. Inspect the producer UID in status.sourceBindings.",
+      "reason": "BoundProducerMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The study stopped after cancellation. Follow status.trials to inspect children that had already started.",
+      "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Create the named source in the workspace or correct the source reference.",
+      "reason": "DependencyNotFound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare the expected output UID and artifact digest with the published output. For a graph snapshot, also check the expected data identity.",
+      "reason": "ExpectedOutputMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer UID differs from the expected UID. Confirm which object the request should use.",
+      "reason": "ExpectedProducerUidMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read status.failure and the child TrainingRun states. StudyNoCompleteCandidate means no candidate succeeded across every seed.",
+      "reason": "Failed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Grant the submitting identity access to the resource named in the message.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer identity changed after binding. Compare the producer UID and generation with status.sourceBindings.",
+      "reason": "InputChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The controller recorded the source identities. Inspect status.sourceBindings before following execution.",
+      "reason": "InputsBound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "In Pending, check the named dependency. In Running, compare status.plannedTrials with status.trials by candidate and seed. Inspect status.pendingTrial for a child creation request.",
+      "reason": "NotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The output no longer matches its bound identity. Compare its UID and artifact digest with the binding. For a graph snapshot, also compare the data identity.",
+      "reason": "OutputIdentityChanged",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The published output reference or digest is incomplete. Inspect the producer and its published output.",
+      "reason": "OutputMalformed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The producer has no reference to the requested output. Inspect its status.outputs.",
+      "reason": "OutputMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The bound output is unavailable at the current generation. Inspect its conditions and phase.",
+      "reason": "OutputNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The source has not reached its successful phase at the current generation. Inspect its conditions.",
+      "reason": "ProducerNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The GraphSnapshot has no publication record. Inspect its build and publication status.",
+      "reason": "PublicationMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Compare the requested source name, kind, and expected UID with the retained producer in status.sourceBindings.",
+      "reason": "SourceBindingMismatch",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The source reached an unsuccessful phase. Read its status and failure details.",
+      "reason": "UpstreamFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect status.winner for the selected candidate and mean validation score. Use status.outputs.model for its Model.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "A deadline can end the profile before cleanup finishes.",
+    "nextCheck": "Check the request deadline and recorded usage. Check cleanup again before removing the request.",
+    "status": {
+      "cleanupComplete": false,
+      "failure": {
+        "reason": "ProfileDeadlineExceeded",
+        "retrySamePlan": false
+      },
+      "state": "Failed"
+    },
+    "title": "When the profile exceeds its deadline"
+  },
+  "kind": "TableProfile",
+  "narrative": "TableProfile reports `status.state`. While planning, inspect the request’s source, mode, and budget. During aggregation, follow the profile workflow. A successful request publishes `status.result`. For a failed or cancelled profile, inspect `status.failure`, `status.accounting`, and `status.cleanupComplete`. Cleanup can finish after the request reaches its terminal state.",
+  "outcomes": []
+}

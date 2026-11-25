@@ -1,0 +1,17 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The installation has profiling disabled. The controller records the outcome on the capture.",
+    "nextCheck": "Check the installation's profiling settings before submitting another capture.",
+    "status": {
+      "phase": "Unsupported",
+      "reason": "ProfilingDisabled"
+    },
+    "title": "Profiling disabled"
+  },
+  "kind": "PerformanceCapture",
+  "narrative": "Read `status.phase`, `status.reason`, and `status.message` to track the capture. The capture has its own outcome, separate from the profiled workload.\n\n| Phase or reason | What to check |\n| --- | --- |\n| `Armed`, `Capturing`, `Finalizing` | The controller has prepared the capture, is collecting data, or is processing the result. Check `status.identity` when present to confirm the target pod and container. |\n| `Ready` | The capture completed. Use `status.artifact` for the stored profile. A successful CPU export also supplies `status.flamegraph`. |\n| `Partial` | Inspect the reason before using the profile. For `NoSamplesInSelectedWindow`, choose a window when the target process is active. For `CollectorExitedBeforeWindow`, the CPU collector stopped early. Check `status.artifact` for a partial profile. |\n| `Unsupported` | For `ProfilingDisabled`, check installation profiling settings. For a CPU capture with `NoRunningTarget`, check whether the target pod and container are running. With `AmbiguousTargetSelectPodAndContainer`, specify the pod and container to select one target. For `CudaCaptureToolingUnavailable`, check the training target and installed CUDA profiling tools. Use step-based triggers for `CaptureTriggerUnsupported`. For `CaptureMustBeArmedBeforeLaunch`, request CUDA capture before the initial training plan is frozen. |\n| `Failed` | Inspect the reason. `CollectorJobDisappeared` means the collector Job was lost. For `CaptureExportFailed`, inspect the collector result and artifact storage access. |\n| `Cancelled` | The controller stopped the capture. Check `status.cleanupComplete` for cleanup of the capture resources. |\n\nFor a CUDA capture, the controller can copy the reason from the worker receipt. Read the reason and inspect the target training attempt.\n\nA terminal phase can appear before cleanup finishes. If the reason is `CaptureLaunchUnresolved`, the controller retains the cleanup finalizer until it can establish the outcome of the collector launch.",
+  "outcomes": []
+}

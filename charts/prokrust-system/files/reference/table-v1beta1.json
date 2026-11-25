@@ -1,0 +1,116 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports the validation result for the current table definition.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether the operator resolved the source connection, policy, and artifact storage.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the current table definition has been published. A TableSnapshot records a read from that source.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The operator cannot publish this table while the source runtime or certificate is unavailable.",
+    "nextCheck": "Inspect the connection in the table’s namespace. Check its runtime readiness and certificate, then look for `Ready=True` on the current table generation.",
+    "status": {
+      "conditions": [
+        {
+          "message": "The connector runtime or certificate is not ready yet; retrying automatically.",
+          "observedGeneration": 2,
+          "reason": "ReconciliationFailed",
+          "status": "False",
+          "type": "Ready"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "CONNECTOR_DEPENDENCY_PENDING",
+          "message": "The connector runtime or certificate is not ready yet; retrying automatically."
+        }
+      ]
+    },
+    "title": "When the source connector is pending"
+  },
+  "kind": "Table",
+  "narrative": "A failed definition can clear `status.artifact`. Check the generation and digest in `status.previousReady` before using a retained definition.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "Read the `TABLE_INVALID` diagnostic. Check the named key, column, time policy, or conversion rule.",
+      "reason": "InvalidSpec",
+      "status": "False"
+    },
+    {
+      "conditionType": "Accepted",
+      "guidance": "The operator accepted the table definition. Check the publication result under `Ready`.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "Accepted",
+      "guidance": "An earlier operation failed. Read the diagnostic before changing the table definition.",
+      "reason": "NotEvaluated",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the artifact access binding and the controller identity named in the diagnostic.",
+      "reason": "ArtifactAuthorizationDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The operator resolved the dependencies for publishing this definition.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Correct the invalid spec before checking its dependencies.",
+      "reason": "NotEvaluated",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read `status.diagnostics` to identify the failed read or dependency. For a pending connector, inspect its runtime and certificate.",
+      "reason": "ReconciliationFailed",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the artifact access binding and the controller identity named in the diagnostic.",
+      "reason": "ArtifactAuthorizationDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the `TABLE_INVALID` diagnostic. Check the named key, column, time policy, or conversion rule.",
+      "reason": "Invalid",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check artifact storage access. Publication can fail after validation and dependency resolution succeed.",
+      "reason": "PublicationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read `status.diagnostics` to identify the failed read or dependency. For a pending connector, inspect its runtime and certificate.",
+      "reason": "ReconciliationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Use `status.artifact` for the published table definition, its resolved source identity, and column recipe.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

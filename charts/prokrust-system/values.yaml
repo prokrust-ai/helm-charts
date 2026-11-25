@@ -65,7 +65,7 @@ global:
 images:
   operator:
     repository: ar.prokrust.io/prokrust/operator
-    digest: sha256:87dfbff2d4256f998a20bcce29640471d019b69de78a6b146a1216ecfc6bd1df
+    digest: sha256:76c31547d07a21b1f8d1c7258f90e75481276b40cf7995659abd08993ccc99cc
     pullPolicy: IfNotPresent
 controllers:
   applicationReplicas: 1

@@ -1,0 +1,142 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the workflow accepted the build specification.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Confirms artifact verification on a successful table build.",
+      "type": "ArtifactVerified"
+    },
+    {
+      "meaning": "Reports the end of table workflow shutdown. Read the reason to distinguish clean shutdown from uncertain remote work.",
+      "type": "CleanupComplete"
+    },
+    {
+      "meaning": "Reports a dependency wait or successful resolution. The ordinary graph workflow can omit this check.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Tracks workflow activity, a capacity wait, or cancellation.",
+      "type": "Progressing"
+    },
+    {
+      "meaning": "Reports the outcome of the build attempt. Read the parent snapshot for the durable publication.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The build can accept the request while it waits for the referenced Table.",
+    "nextCheck": "Check the dependency’s readiness. Use the parent snapshot’s committed publication to locate the result after the build succeeds.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Referenced Table is not ready.",
+          "observedGeneration": 2,
+          "reason": "DependencyNotReady",
+          "status": "False",
+          "type": "DependenciesReady"
+        }
+      ],
+      "executionPhase": "Validating",
+      "phase": "Blocked"
+    },
+    "title": "When a dependency delays a build"
+  },
+  "kind": "SnapshotBuild",
+  "narrative": "Read `spec.request.snapshotRef.kind` first. Table and graph builds report different workflow checks. A missing target, identity mismatch, or competing build can set a failure before refreshing conditions. Check `status.phase`, `status.executionPhase`, and `status.failure` together. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the build's `spec.request.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "The workflow accepted the specification. A dependency can still delay execution.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "ArtifactVerified",
+      "guidance": "The table build verified the canonical snapshot artifact. Read the parent publication for the committed result.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "CleanupComplete",
+      "guidance": "Shutdown ended while remote work was uncertain. Inspect the build’s cleanup disposition before retrying.",
+      "reason": "CleanupAmbiguous",
+      "status": "True"
+    },
+    {
+      "conditionType": "CleanupComplete",
+      "guidance": "The workflow finished shutdown. Inspect the build cleanup state before submitting a replacement.",
+      "reason": "CleanupClean",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the dependency named in the message and check its status before retrying.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The table build resolved its dependencies.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "The table build is stopping. Check cleanup before starting another attempt.",
+      "reason": "CancellationInProgress",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Inspect scheduling events for the workflow’s worker pods. Check their resource requests and available node capacity.",
+      "reason": "WaitingForCapacity",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "The attempt is active. Follow its workflow reference to see which step is running.",
+      "reason": "WorkflowRunning",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the dependency named in the message and check its status before retrying.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The table build is stopping. Check cleanup before starting another attempt.",
+      "reason": "CancelRequested",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The workflow stopped after cancellation. Check cleanup before retrying.",
+      "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The attempt is active. Follow its workflow reference to see which step is running.",
+      "reason": "Progressing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the build failure and the referenced workflow for the failed step.",
+      "reason": "WorkflowFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The workflow finished successfully. Check the parent snapshot’s publication before consuming the result.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

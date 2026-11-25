@@ -1,0 +1,188 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the controller accepted the storage configuration for this pass.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether storage authorization and probe dependencies allow use of the configured store.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports the state and freshness of the probe result for the current configuration and identity.",
+      "type": "ProbeHealth"
+    },
+    {
+      "meaning": "Reports whether the probe established the runtime identity used to access storage.",
+      "type": "ProbeIdentity"
+    },
+    {
+      "meaning": "Reports whether the controller retains a successful probe identity and Job UID.",
+      "type": "ProbeQualified"
+    },
+    {
+      "meaning": "Reports whether this generation has a usable storage qualification.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The controller could not verify the current probe identity or authorization.",
+    "nextCheck": "Check the storage identity and authorization in the workspace policy. For a placement override, check spec.probePlacementTemplateRef and the artifactStoreProbe role. Inspect status.probeRef when a Job exists.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Current spec is valid.",
+          "observedGeneration": 1,
+          "reason": "ValidSpec",
+          "status": "True",
+          "type": "Accepted"
+        },
+        {
+          "message": "The current probe identity or authorization could not be verified; readiness requires a current successful qualification.",
+          "observedGeneration": 1,
+          "reason": "ProbeFailed",
+          "status": "False",
+          "type": "DependenciesReady"
+        },
+        {
+          "message": "The current probe identity or authorization could not be verified; readiness requires a current successful qualification.",
+          "observedGeneration": 1,
+          "reason": "Degraded",
+          "status": "False",
+          "type": "Ready"
+        },
+        {
+          "message": "The current probe qualification is unavailable.",
+          "observedGeneration": 1,
+          "reason": "Failed",
+          "status": "False",
+          "type": "ProbeHealth"
+        },
+        {
+          "message": "No current validated probe identity is retained.",
+          "observedGeneration": 1,
+          "reason": "NotValidated",
+          "status": "False",
+          "type": "ProbeIdentity"
+        },
+        {
+          "message": "No current successful probe identity is retained.",
+          "observedGeneration": 1,
+          "reason": "NotQualified",
+          "status": "False",
+          "type": "ProbeQualified"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "STORAGE_PROBE_UNAVAILABLE",
+          "message": "The current probe identity or authorization could not be verified; readiness requires a current successful qualification.",
+          "severity": "Error"
+        }
+      ],
+      "phase": "Degraded"
+    },
+    "title": "Storage qualification unavailable"
+  },
+  "kind": "ArtifactStore",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "The configuration passed its check. Inspect the probe results for actual storage access.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "If the probe is running, inspect the Job in status.probeRef. Before a Job starts, check ProkrustPolicy/default and its storage authorization.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read status.diagnostics and inspect the Job in status.probeRef when present.",
+      "reason": "ProbeFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect status.capabilities for verified operations such as get and put.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "ProbeHealth",
+      "guidance": "The controller has no successful qualification. Inspect the Job and status.diagnostics.",
+      "reason": "Failed",
+      "status": "False"
+    },
+    {
+      "conditionType": "ProbeHealth",
+      "guidance": "The result expired or its completion timestamp is invalid. Inspect the current Job and its completion time.",
+      "reason": "Stale",
+      "status": "False"
+    },
+    {
+      "conditionType": "ProbeHealth",
+      "guidance": "A current successful result exists. Check status.probeExpiresAt for the qualification deadline.",
+      "reason": "Fresh",
+      "status": "True"
+    },
+    {
+      "conditionType": "ProbeHealth",
+      "guidance": "The initial probe is running. Follow status.probeRef to inspect its Job.",
+      "reason": "Checking",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "ProbeHealth",
+      "guidance": "A refresh is running. The previous result qualifies the same identity until status.probeExpiresAt.",
+      "reason": "Rechecking",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "ProbeIdentity",
+      "guidance": "Check the service account and storage credentials allowed by policy.",
+      "reason": "NotValidated",
+      "status": "False"
+    },
+    {
+      "conditionType": "ProbeIdentity",
+      "guidance": "The probe verified the runtime identity. Compare the recorded identity with the storage identity you expect.",
+      "reason": "Validated",
+      "status": "True"
+    },
+    {
+      "conditionType": "ProbeQualified",
+      "guidance": "Wait for the current probe Job or inspect its failure before using the store.",
+      "reason": "NotQualified",
+      "status": "False"
+    },
+    {
+      "conditionType": "ProbeQualified",
+      "guidance": "The message identifies the successful probe identity and Job UID. Use them to trace the result.",
+      "reason": "Qualified",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "If the probe is running, inspect the Job in status.probeRef. Before a Job starts, check ProkrustPolicy/default and its storage authorization.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read status.diagnostics and inspect the Job in status.probeRef when present.",
+      "reason": "Degraded",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect status.capabilities for verified operations such as get and put.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

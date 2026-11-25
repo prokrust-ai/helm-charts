@@ -1,0 +1,8 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [],
+  "contractVersion": 1,
+  "kind": "ProkrustAccessBinding",
+  "narrative": "This resource has no status subresource. To check a binding, inspect the identity provider in `spec.providerRef`, the match expression in `spec.rule`, and the same-namespace service account in `spec.serviceAccountRef.name`. Check the service account's permissions for the requested operation.",
+  "outcomes": []
+}

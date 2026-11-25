@@ -1,0 +1,374 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the operator resolved its plan dependencies. Cancellation can also set this to true.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the preparation bound its inputs. Read `status.resolvedPlanRef` to locate the plan.",
+      "type": "InputsBound"
+    },
+    {
+      "meaning": "Reports active work on bound inputs. Check `status.tables` and `status.graphSnapshot` for the current step.",
+      "type": "Progressing"
+    },
+    {
+      "meaning": "Reports whether the operator verified the published graph snapshot. On success, read `status.outputs.graphSnapshot`.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "dynamicOutcomes": [
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the diagnostic and the failed resource or storage operation. A dependency lookup can supply its own reason.",
+      "reasonSource": "The plan diagnostic in `status.diagnosticCode`",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Inspect the diagnostic and the failed resource or storage operation. A dependency lookup can supply its own reason.",
+      "reasonSource": "The plan diagnostic in `status.diagnosticCode`",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Inspect the diagnostic and the failed resource or storage operation. A dependency lookup can supply its own reason.",
+      "reasonSource": "The plan diagnostic in `status.diagnosticCode`",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the diagnostic and the failed resource or storage operation. A dependency lookup can supply its own reason.",
+      "reasonSource": "The plan diagnostic in `status.diagnosticCode`",
+      "status": "False"
+    }
+  ],
+  "example": {
+    "introduction": "A preparation that cannot load its plan reports the storage diagnostic in its dependency condition.",
+    "nextCheck": "Inspect artifact storage access for the preparation. On recovery, check the plan reference and the child snapshot statuses.",
+    "status": {
+      "conditions": [
+        {
+          "message": "PlanStorageUnavailable",
+          "observedGeneration": 2,
+          "reason": "PlanStorageUnavailable",
+          "status": "False",
+          "type": "DependenciesReady"
+        }
+      ]
+    },
+    "title": "When plan storage is unavailable"
+  },
+  "kind": "SnapshotPreparation",
+  "narrative": "For `NeedsReview`, inspect `pinDiagnostic` and `lastPinMismatch`. Some branches write a phase and diagnostic before they refresh conditions. Compare the condition generation with the preparation generation. For a scheduling delay, inspect the SnapshotBuild named by the step’s `activeBuildRef`. A table alias or graph placement override takes precedence over `spec.execution.placementTemplateRef`.",
+  "outcomes": [
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the Kubernetes dependency named in the diagnostic and retry the read.",
+      "reason": "DependencyObservationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the permissions for the resource named in the preparation diagnostic.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check access to the store that holds the preparation plan.",
+      "reason": "PlanStorageUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read the plan diagnostic and inspect the inputs it identifies.",
+      "reason": "PlanValidationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the pending connector and the readiness of its runtime.",
+      "reason": "WaitingForDependencies",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Blocked",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelled",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Failed",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The operator stored the input plan. Check its reference before following the child snapshots.",
+      "reason": "InputsBound",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Follow the table aliases in `status.tables` and the graph snapshot step to find the active child.",
+      "reason": "Preparing",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Use the graph snapshot name, UID, artifact digest, and data identity in the outputs.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the Kubernetes dependency named in the diagnostic and retry the read.",
+      "reason": "DependencyObservationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the permissions for the resource named in the preparation diagnostic.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check access to the store that holds the preparation plan.",
+      "reason": "PlanStorageUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Read the plan diagnostic and inspect the inputs it identifies.",
+      "reason": "PlanValidationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the pending connector and the readiness of its runtime.",
+      "reason": "WaitingForDependencies",
+      "status": "False"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Blocked",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelled",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Failed",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "The operator stored the input plan. Check its reference before following the child snapshots.",
+      "reason": "InputsBound",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Follow the table aliases in `status.tables` and the graph snapshot step to find the active child.",
+      "reason": "Preparing",
+      "status": "True"
+    },
+    {
+      "conditionType": "InputsBound",
+      "guidance": "Use the graph snapshot name, UID, artifact digest, and data identity in the outputs.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the Kubernetes dependency named in the diagnostic and retry the read.",
+      "reason": "DependencyObservationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Failed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the permissions for the resource named in the preparation diagnostic.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check access to the store that holds the preparation plan.",
+      "reason": "PlanStorageUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Read the plan diagnostic and inspect the inputs it identifies.",
+      "reason": "PlanValidationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Use the graph snapshot name, UID, artifact digest, and data identity in the outputs.",
+      "reason": "Ready",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the pending connector and the readiness of its runtime.",
+      "reason": "WaitingForDependencies",
+      "status": "False"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "The operator stored the input plan. Check its reference before following the child snapshots.",
+      "reason": "InputsBound",
+      "status": "True"
+    },
+    {
+      "conditionType": "Progressing",
+      "guidance": "Follow the table aliases in `status.tables` and the graph snapshot step to find the active child.",
+      "reason": "Preparing",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the child steps and the plan reference to see which inputs were already bound when cancellation began.",
+      "reason": "Cancelling",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the Kubernetes dependency named in the diagnostic and retry the read.",
+      "reason": "DependencyObservationUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the phase and diagnostic code, then inspect the child or pin identified there.",
+      "reason": "Failed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the permissions for the resource named in the preparation diagnostic.",
+      "reason": "Forbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The operator stored the input plan. Check its reference before following the child snapshots.",
+      "reason": "InputsBound",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check access to the store that holds the preparation plan.",
+      "reason": "PlanStorageUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the plan diagnostic and inspect the inputs it identifies.",
+      "reason": "PlanValidationFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Follow the table aliases in `status.tables` and the graph snapshot step to find the active child.",
+      "reason": "Preparing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the pending connector and the readiness of its runtime.",
+      "reason": "WaitingForDependencies",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Use the graph snapshot name, UID, artifact digest, and data identity in the outputs.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

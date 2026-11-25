@@ -1,0 +1,53 @@
+{
+  "apiVersion": "ml.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether training verified the model bundle identity and the artifacts required for publication.",
+      "type": "ArtifactVerified"
+    },
+    {
+      "meaning": "Reports whether the published Model is ready for consumers.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The TrainingRun controller wrote these conditions after verifying the model bundle and publication records.",
+    "nextCheck": "Compare status.loadedIdentity with the training and artifact digests you expect.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Model bundle identity and publication closure are verified.",
+          "observedGeneration": 1,
+          "reason": "Verified",
+          "status": "True",
+          "type": "ArtifactVerified"
+        },
+        {
+          "message": "Model is ready.",
+          "observedGeneration": 1,
+          "reason": "Ready",
+          "status": "True",
+          "type": "Ready"
+        }
+      ]
+    },
+    "title": "Model publication verified"
+  },
+  "kind": "Model",
+  "narrative": "If a condition is missing, inspect publication and failure status on the TrainingRun named by `spec.trainingRunRef`.",
+  "outcomes": [
+    {
+      "conditionType": "ArtifactVerified",
+      "guidance": "Check status.artifactVerifiedAt for the verification time and status.loadedIdentity for the verified digests.",
+      "reason": "Verified",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The same update sets status.phase to Ready. Check status.producerRef for the TrainingRun identity.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

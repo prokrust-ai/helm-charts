@@ -1,0 +1,82 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the controller accepted the policy configuration for this pass.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether the referenced accounts, images, programs, and other dependencies resolve.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the controller resolved the policy for this generation.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The policy refers to a workspace service account that the controller cannot find.",
+    "nextCheck": "Check the namespace and name in the message. Create the required service account or correct the policy reference. After successful resolution, inspect status.resolved.serviceAccountUids.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Current spec is valid.",
+          "observedGeneration": 1,
+          "reason": "ValidSpec",
+          "status": "True",
+          "type": "Accepted"
+        },
+        {
+          "message": "ServiceAccount/tenant/missing-trainer does not exist.",
+          "observedGeneration": 1,
+          "reason": "DependencyNotReady",
+          "status": "False",
+          "type": "DependenciesReady"
+        },
+        {
+          "message": "ServiceAccount/tenant/missing-trainer does not exist.",
+          "observedGeneration": 1,
+          "reason": "Blocked",
+          "status": "False",
+          "type": "Ready"
+        }
+      ]
+    },
+    "title": "Training service account missing"
+  },
+  "kind": "ProkrustPolicy",
+  "narrative": "Each placement default must name a template that permits that role. The workspace template must match the definition approved by the installation. When the controller reports a blocked dependency, it clears `status.resolved`. A failed Kubernetes read can leave earlier status in place. Compare `status.observedGeneration` with `metadata.generation` before using the resolved values.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "The policy passed its configuration check. Inspect DependenciesReady for unresolved references.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Read the message. Check the namespace and name for a missing service account or the required digest for an image error. For a placement error, check the role in spec.execution.placementDefaults and the named template in spec.execution.placementTemplates.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect status.resolved for the program digests and service account UIDs that the controller validated.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read the message. Check the namespace and name for a missing service account or the required digest for an image error. For a placement error, check the role in spec.execution.placementDefaults and the named template in spec.execution.placementTemplates.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect status.resolved for the program digests and service account UIDs that the controller validated.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

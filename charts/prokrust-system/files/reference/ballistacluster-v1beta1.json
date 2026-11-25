@@ -1,0 +1,147 @@
+{
+  "apiVersion": "platform.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the controller accepted the cluster definition for this pass.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether dependencies are ready, cluster settings match policy, and the producer semaphore matches the configured limit.",
+      "type": "Configured"
+    },
+    {
+      "meaning": "Reports whether dependencies and the active pool permit remote execution.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the expected workloads and a verified remote health query allow execution.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "Kubernetes denied an operation on a tenant dependency. The controller reported the permission error and marked the cluster Degraded.",
+    "nextCheck": "Check the tenant Role and its RoleBinding for the system controller. After access is restored, check Ready and the remote health query.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Current spec is valid.",
+          "observedGeneration": 1,
+          "reason": "ValidSpec",
+          "status": "True",
+          "type": "Accepted"
+        },
+        {
+          "message": "Ballista controller cannot read or reconcile a tenant dependency. Check the tenant Role and its system-controller RoleBinding.",
+          "observedGeneration": 1,
+          "reason": "ReconcileForbidden",
+          "status": "False",
+          "type": "DependenciesReady"
+        },
+        {
+          "message": "Ballista controller cannot read or reconcile a tenant dependency. Check the tenant Role and its system-controller RoleBinding.",
+          "observedGeneration": 1,
+          "reason": "ReconcileForbidden",
+          "status": "False",
+          "type": "Ready"
+        }
+      ],
+      "phase": "Degraded"
+    },
+    "title": "Tenant access denied"
+  },
+  "kind": "BallistaCluster",
+  "narrative": "In `Draining`, new work waits for the next healthy pool. In `Degraded`, inspect `status.failure` and the condition reason.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "The cluster definition passed its check. Inspect Configured and Ready.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "Configured",
+      "guidance": "Check dependency readiness, the settings in the workspace policy, and the producer semaphore limit.",
+      "reason": "CapacityConfiguration",
+      "status": "False"
+    },
+    {
+      "conditionType": "Configured",
+      "guidance": "The cluster has the expected policy and capacity configuration. An idle on-demand cluster can have no active scheduler or executors.",
+      "reason": "CapacityConfiguration",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the referenced workspace policy, artifact connection, federation ConfigMap, and scheduler and executor service accounts.",
+      "reason": "DependencyMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the condition message and status.phase. Check scheduler and executor rollout in Starting or Provisioning and the remote health query in Probing.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the configuration error in status.failure. For placement errors, compare the scheduler, executor or probe template named in spec with the allowed role and the installation-approved definition in the workspace policy.",
+      "reason": "InvalidRuntimeConfiguration",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect controller diagnostics and dependency permissions. Reconciliation retries.",
+      "reason": "ReconcileFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Check the tenant Role and the system controller's RoleBinding.",
+      "reason": "ReconcileForbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Use status.scheduler, status.executors, and status.endpoints to identify the active pool.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the condition message and status.phase. Check scheduler and executor rollout in Starting or Provisioning and the remote health query in Probing.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the referenced workspace policy, artifact connection, federation ConfigMap, and scheduler and executor service accounts.",
+      "reason": "DependencyMissing",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the configuration error in status.failure. For placement errors, compare the scheduler, executor or probe template named in spec with the allowed role and the installation-approved definition in the workspace policy.",
+      "reason": "InvalidRuntimeConfiguration",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect controller diagnostics and dependency permissions. Reconciliation retries.",
+      "reason": "ReconcileFailed",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Check the tenant Role and the system controller's RoleBinding.",
+      "reason": "ReconcileForbidden",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Use status.scheduler, status.executors, and status.endpoints to identify the active pool.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "apiVersion": "data.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the operator verified the snapshot artifacts and committed the parent snapshot publication.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The operator verified the result and committed its publication on the parent snapshot.",
+    "nextCheck": "Match the condition generation to the snapshot generation, then read the result from the parent’s publication.",
+    "status": {
+      "conditions": [
+        {
+          "message": "Immutable snapshot publication verified.",
+          "observedGeneration": 2,
+          "reason": "PublicationCommitted",
+          "status": "True",
+          "type": "Ready"
+        }
+      ]
+    },
+    "title": "When publication completes"
+  },
+  "kind": "GraphSnapshot",
+  "narrative": "Before publication, conditions can be empty. If `status.activeBuildRef` is present, inspect the active build. A failed or cancelled attempt can retain the active claim while cleanup is uncertain. Once the claim is released, check `status.failure` and `status.lastBuildRef`. The publication’s artifact digest and data identity identify the materialized graph. The Graph has a separate artifact for its definition. [SnapshotBuild conditions](/reference/kubernetes/data.prokrust.ai/v1beta1/snapshotbuild/#conditions)",
+  "outcomes": [
+    {
+      "conditionType": "Ready",
+      "guidance": "Read `status.publication.result` for the verified result and `status.publication.root` for the commit record. The producer build UID identifies the attempt.",
+      "reason": "PublicationCommitted",
+      "status": "True"
+    }
+  ]
+}

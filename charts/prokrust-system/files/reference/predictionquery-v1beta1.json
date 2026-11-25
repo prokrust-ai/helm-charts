@@ -1,0 +1,100 @@
+{
+  "apiVersion": "ml.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the query passed validation for this pass. Parsing can succeed while compilation waits for a graph or table.",
+      "type": "Accepted"
+    },
+    {
+      "meaning": "Reports whether the graph, table definitions, and publication dependencies are ready.",
+      "type": "DependenciesReady"
+    },
+    {
+      "meaning": "Reports whether the controller compiled and published the definition for this generation.",
+      "type": "Ready"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The PQL parser rejected the expression `?`. The controller reports the parser error for the current generation.",
+    "nextCheck": "Use the field and source span in status.diagnostics to locate the error. After editing spec.pql, check Ready at the new generation.",
+    "status": {
+      "conditions": [
+        {
+          "message": "unexpected character",
+          "observedGeneration": 1,
+          "reason": "InvalidSpec",
+          "status": "False",
+          "type": "Accepted"
+        },
+        {
+          "message": "Dependencies are not evaluated for an invalid spec.",
+          "observedGeneration": 1,
+          "reason": "NotEvaluated",
+          "status": "Unknown",
+          "type": "DependenciesReady"
+        },
+        {
+          "message": "unexpected character",
+          "observedGeneration": 1,
+          "reason": "Invalid",
+          "status": "False",
+          "type": "Ready"
+        }
+      ]
+    },
+    "title": "PQL parsing failed"
+  },
+  "kind": "PredictionQuery",
+  "narrative": "A ready query can still have warnings. Read `status.diagnostics` after publication.",
+  "outcomes": [
+    {
+      "conditionType": "Accepted",
+      "guidance": "Read status.diagnostics. Use the code, field, and source span to correct spec.pql.",
+      "reason": "InvalidSpec",
+      "status": "False"
+    },
+    {
+      "conditionType": "Accepted",
+      "guidance": "The specification passed validation for this pass. Check dependencies and publication.",
+      "reason": "ValidSpec",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Inspect the graph, table definition, or publication dependency named in the message.",
+      "reason": "DependencyNotReady",
+      "status": "False"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "The required dependencies resolved. Check Ready for publication.",
+      "reason": "Ready",
+      "status": "True"
+    },
+    {
+      "conditionType": "DependenciesReady",
+      "guidance": "Correct the query error in status.diagnostics before checking dependencies.",
+      "reason": "NotEvaluated",
+      "status": "Unknown"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect the graph, table definition, or publication dependency named in the message.",
+      "reason": "Blocked",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Read status.diagnostics. Use the code, field, and source span to correct spec.pql.",
+      "reason": "Invalid",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Inspect status.normalizedAst and status.taskDescriptor for the compiled artifacts. Check status.task for the inferred prediction task.",
+      "reason": "Ready",
+      "status": "True"
+    }
+  ]
+}
