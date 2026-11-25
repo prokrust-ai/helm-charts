@@ -1,6 +1,6 @@
-controllerImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:934da09e24ac96a4ea4ec93bba993be9a95d16d416b94135f2681c269113e71c
-runtimeImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:934da09e24ac96a4ea4ec93bba993be9a95d16d416b94135f2681c269113e71c
-descriptorDigest: sha256:b17f9a8204c997076685e8f487429e102e95a725eab1573de92a5e4adc6b7308
+controllerImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:ae8bbabfab18742db84984ab60dd0bd35d1f7f8ee189927291ee3d1deaeacbae
+runtimeImage: ar.prokrust.io/prokrust/connector-bigquery@sha256:ae8bbabfab18742db84984ab60dd0bd35d1f7f8ee189927291ee3d1deaeacbae
+descriptorDigest: sha256:b0870e9d462f8e38757d845dc6708ee81d416fc3753f69838f9f8a22b415e29c
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []

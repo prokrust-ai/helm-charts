@@ -1,7 +1,7 @@
 apiVersion: v2
 name: connector-bigquery
-version: 1.4.0-rc.1
-appVersion: 1.4.0-rc.1
+version: 1.5.0-rc.1
+appVersion: 1.5.0-rc.1
 type: application
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/connector-bigquery
 sources:
