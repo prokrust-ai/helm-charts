@@ -1,0 +1,187 @@
+{
+  "apiVersion": "apache.sources.prokrust.ai/v1beta1",
+  "conditions": [
+    {
+      "meaning": "Reports whether the controller accepted the connection configuration. Compare the condition’s observed generation with the resource generation.",
+      "type": "ConfigValid"
+    },
+    {
+      "meaning": "Reports whether the controller accepted the source credential reference, when the configuration requires one. A connection probe tests access to the source.",
+      "type": "CredentialsValid"
+    },
+    {
+      "meaning": "Reports whether one responding replica using the current generation, admission epoch and release verified within the last 30 minutes the workspace artifact challenge. Source discovery is independent.",
+      "type": "ArtifactAccessReady"
+    },
+    {
+      "meaning": "Reports whether at least one runtime pod is ready. Read status.runtime.readyReplicas for the count.",
+      "type": "RuntimeReady"
+    },
+    {
+      "meaning": "Reports whether the workspace can start a new scan on this runtime. Existing work can continue during a drain.",
+      "type": "AcceptingNewScans"
+    }
+  ],
+  "contractVersion": 1,
+  "example": {
+    "introduction": "The installation closes admission while two runtime pods remain ready. Existing scans can finish.",
+    "nextCheck": "Check the workspace and release before starting another scan. Wait for `AcceptingNewScans=True` at the current generation.",
+    "status": {
+      "conditions": [
+        {
+          "observedGeneration": 1,
+          "reason": "RuntimeReplicasReady",
+          "status": "True",
+          "type": "RuntimeReady"
+        },
+        {
+          "observedGeneration": 1,
+          "reason": "AdmissionClosed",
+          "status": "False",
+          "type": "AcceptingNewScans"
+        }
+      ],
+      "observedGeneration": 1,
+      "runtime": {
+        "acceptsNewScans": false,
+        "admissionEpoch": 5,
+        "readyReplicas": 2
+      }
+    },
+    "title": "When the runtime is draining"
+  },
+  "kind": "PaimonConnection",
+  "outcomes": [
+    {
+      "conditionType": "ConfigValid",
+      "guidance": "The configuration passed validation. Check the runtime and admission conditions before starting a new scan.",
+      "reason": "ConfigResolved",
+      "status": "True"
+    },
+    {
+      "conditionType": "ConfigValid",
+      "guidance": "The specification failed validation. Check the provider’s connection schema. Create a new connection to correct an immutable specification.",
+      "reason": "InvalidConnectionSpec",
+      "status": "False"
+    },
+    {
+      "conditionType": "CredentialsValid",
+      "guidance": "The credential reference is acceptable, or the configuration needs none. Run a connection probe if you need to verify remote access.",
+      "reason": "CredentialBindingResolved",
+      "status": "True"
+    },
+    {
+      "conditionType": "CredentialsValid",
+      "guidance": "The controller rejected the source Secret reference. Check the name, including whether it is reserved for a Prokrust-managed Secret.",
+      "reason": "CredentialBindingUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "The runtime verified the exact control object version and created and read the scoped staging object.",
+      "reason": "ArtifactAccessVerified",
+      "status": "True"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Wait for the operator to probe this connection generation, runtime release and admission epoch.",
+      "reason": "ArtifactAccessPending",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check the runtime service account, workload identity trust or mounted artifact credentials and reachability of the token endpoint.",
+      "reason": "ArtifactCredentialsUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check DNS, TLS, artifact endpoint configuration, network policies and storage service availability.",
+      "reason": "ArtifactConnectivityUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Grant the runtime identity version-specific read access to this connection's control prefix.",
+      "reason": "ArtifactControlReadDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Grant the runtime identity create-only access to its connection staging prefix using the configured encryption policy.",
+      "reason": "ArtifactStagingWriteDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Grant the runtime identity version-specific read access to its connection staging prefix.",
+      "reason": "ArtifactStagingReadDenied",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check bucket object versioning, object integrity and the immutable workspace binding.",
+      "reason": "ArtifactEvidenceInvalid",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check token and storage endpoint latency and network policy before retrying the bounded probe.",
+      "reason": "ArtifactProbeTimedOut",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Install a connector runtime that supports the artifact access probe.",
+      "reason": "ArtifactProbeUnsupported",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check the operator's workspace store binding and permission to issue a versioned control challenge.",
+      "reason": "ArtifactOperatorStoreUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check runtime replica health, TLS identity and connectivity from the operator.",
+      "reason": "ArtifactRuntimeUnavailable",
+      "status": "False"
+    },
+    {
+      "conditionType": "ArtifactAccessReady",
+      "guidance": "Check the designated owner's access to remove the two scoped probe objects.",
+      "reason": "ArtifactCleanupPending",
+      "status": "False"
+    },
+    {
+      "conditionType": "RuntimeReady",
+      "guidance": "At least one runtime pod is ready. Check AcceptingNewScans to determine whether it can accept new work.",
+      "reason": "RuntimeReplicasReady",
+      "status": "True"
+    },
+    {
+      "conditionType": "RuntimeReady",
+      "guidance": "The controller counted zero ready runtime pods. Inspect the runtime Deployment and pod readiness in the workspace.",
+      "reason": "WaitingForRuntimeReplicas",
+      "status": "False"
+    },
+    {
+      "conditionType": "AcceptingNewScans",
+      "guidance": "The workspace is ready, a runtime pod is ready, and admission is open for the requested provider major version.",
+      "reason": "AdmissionActive",
+      "status": "True"
+    },
+    {
+      "conditionType": "AcceptingNewScans",
+      "guidance": "Check workspace enrollment, runtime readiness, and whether the installation is draining, disabling, or replacing the runtime.",
+      "reason": "AdmissionClosed",
+      "status": "False"
+    }
+  ],
+  "sdk": {
+    "catalogSha256": "27f090b868fd1f7f34de9a04f82460727888aa6aa747f2afad29252d55991b00",
+    "crateChecksum": "4adcc264f12cd6cc7444bfccd9b7f517b67c1c2386b4ae92aa51cc3b84b92628",
+    "version": "0.4.0-rc.1"
+  }
+}
