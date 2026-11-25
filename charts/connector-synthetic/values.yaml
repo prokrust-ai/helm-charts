@@ -1,6 +1,6 @@
-controllerImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:21fc1e0192739c4e989acce3782b0f2ec6b993ca8a918c40a43d9f65fe7dcc65
-runtimeImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:21fc1e0192739c4e989acce3782b0f2ec6b993ca8a918c40a43d9f65fe7dcc65
-descriptorDigest: sha256:3f2a465643da1047da0f9c042d481f46bb639c747ccec3cbfcdc6433390062a1
+controllerImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:581438179c7b3bf0cd5ef6fbb56b35cc117399fa3bed4b05ae7db6c3cfcaed60
+runtimeImage: ar.prokrust.io/prokrust/connector-synthetic@sha256:581438179c7b3bf0cd5ef6fbb56b35cc117399fa3bed4b05ae7db6c3cfcaed60
+descriptorDigest: sha256:75d588d83c269c3003421d5a6db97870cba64557d1aa3dc9471eb48f5836b03e
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []
