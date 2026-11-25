@@ -1,3 +1,21 @@
+{{- define "operator.workloadForegroundCleanupMatch" -}}
+matchConditions:
+  - name: exclude-garbage-collector-foreground-cleanup
+    expression: >-
+      !(request.userInfo.username == 'system:serviceaccount:kube-system:generic-garbage-collector' &&
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') &&
+        has(oldObject.metadata.deletionTimestamp) &&
+        has(oldObject.metadata.finalizers) && 'foregroundDeletion' in oldObject.metadata.finalizers &&
+        (has(object.metadata.finalizers) ? object.metadata.finalizers : []) ==
+          oldObject.metadata.finalizers.filter(f, f != 'foregroundDeletion') &&
+        has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+        (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels) &&
+        has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
+        (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations) &&
+        has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+        (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences) &&
+        dyn(object).spec == dyn(oldObject).spec)
+{{- end -}}
 {{- if (include "operator.connectorRegistry" . | fromJson).enabled }}
 {{- $name := printf "%s-connector-platform" .Release.Namespace }}
 {{- $application := printf "system:serviceaccount:%s:prokrust-application-controller" .Release.Namespace }}
@@ -112,6 +130,7 @@ metadata:
   name: {{ $name }}-executor
 spec:
   failurePolicy: Fail
+  {{- include "operator.workloadForegroundCleanupMatch" . | nindent 2 }}
   matchConstraints:
     resourceRules:
       - apiGroups: [""]
@@ -156,6 +175,7 @@ metadata:
   name: {{ $name }}-workloads
 spec:
   failurePolicy: Fail
+  {{- include "operator.workloadForegroundCleanupMatch" . | nindent 2 }}
   matchConstraints:
     resourceRules:
       - apiGroups: [""]

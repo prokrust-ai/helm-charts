@@ -2,7 +2,7 @@ apiVersion: v2
 name: prokrust-system
 description: Prokrust installation controllers and Web API
 type: application
-version: 0.28.0-rc.1
+version: 0.29.0-rc.1
 appVersion: 0.23.0-rc.1
 kubeVersion: '>=1.35.0-0 <1.38.0-0'
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/prokrust-system
