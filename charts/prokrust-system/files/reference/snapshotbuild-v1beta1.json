@@ -46,7 +46,7 @@
     "title": "When a dependency delays a build"
   },
   "kind": "SnapshotBuild",
-  "narrative": "Read `spec.request.snapshotRef.kind` first. Table and graph builds report different workflow checks. A missing target, identity mismatch, or competing build can set a failure before refreshing conditions. Check `status.phase`, `status.executionPhase`, and `status.failure` together. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the build's `spec.request.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity.",
+  "narrative": "Read `spec.request.snapshotRef.kind` first. Table and graph builds report different workflow checks. A missing target, identity mismatch, or competing build can set a failure before refreshing conditions. Check `status.phase`, `status.executionPhase`, and `status.failure` together. For a failed connector plan, read `status.failure.suggestedAction` and `status.connector.lastPlanningFailure`. A reported controlConcurrency value is the per-replica planning limit. Reserved planning limits describe caps, and do not identify which counter was exceeded. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the build's `spec.request.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity.",
   "outcomes": [
     {
       "conditionType": "Accepted",

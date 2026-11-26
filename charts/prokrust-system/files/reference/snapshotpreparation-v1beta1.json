@@ -62,7 +62,7 @@
     "title": "When plan storage is unavailable"
   },
   "kind": "SnapshotPreparation",
-  "narrative": "For `NeedsReview`, inspect `pinDiagnostic` and `lastPinMismatch`. Some branches write a phase and diagnostic before they refresh conditions. Compare the condition generation with the preparation generation. For a scheduling delay, inspect the SnapshotBuild named by the step’s `activeBuildRef`. A table alias or graph placement override takes precedence over `spec.execution.placementTemplateRef`.",
+  "narrative": "When one table fails, independent tables can continue in `PreparingTables`. Inspect each failed step’s `diagnosticCode` and `lastBuildRef` for its build failure and suggested action. The preparation becomes Failed after all independent tables settle. `FailedBuildUnavailable` means the referenced attempt or its status could no longer be verified. For `NeedsReview`, inspect `pinDiagnostic` and `lastPinMismatch`. Some branches write a phase and diagnostic before they refresh conditions. Compare the condition generation with the preparation generation. For a scheduling delay, inspect the SnapshotBuild named by the step’s `activeBuildRef`. A table alias or graph placement override takes precedence over `spec.execution.placementTemplateRef`.",
   "outcomes": [
     {
       "conditionType": "DependenciesReady",
