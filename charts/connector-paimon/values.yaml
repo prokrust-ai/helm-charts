@@ -1,6 +1,6 @@
-controllerImage: ar.prokrust.io/prokrust/connector-paimon@sha256:620dd23be35d37dd4534ff66871fad3eb43436403db66f4143f19dc2cc7c5151
-runtimeImage: ar.prokrust.io/prokrust/connector-paimon@sha256:620dd23be35d37dd4534ff66871fad3eb43436403db66f4143f19dc2cc7c5151
-descriptorDigest: sha256:9b9efe0a92045c6f5ae8ced57666305d910fa012f948d52f270b1c090f9d045a
+controllerImage: ar.prokrust.io/prokrust/connector-paimon@sha256:64583bf2490bad5b4724b101b762bf0f2320492cf4030fd14cbb684f5b57d6ae
+runtimeImage: ar.prokrust.io/prokrust/connector-paimon@sha256:64583bf2490bad5b4724b101b762bf0f2320492cf4030fd14cbb684f5b57d6ae
+descriptorDigest: sha256:c0b6ce07440129920cffd38612c927ca1cf2044738d2855994aaf3df3cc62f94
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []
