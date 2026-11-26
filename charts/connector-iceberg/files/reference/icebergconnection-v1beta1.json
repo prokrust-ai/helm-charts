@@ -181,7 +181,7 @@
   ],
   "sdk": {
     "catalogSha256": "27f090b868fd1f7f34de9a04f82460727888aa6aa747f2afad29252d55991b00",
-    "crateChecksum": "4adcc264f12cd6cc7444bfccd9b7f517b67c1c2386b4ae92aa51cc3b84b92628",
-    "version": "0.4.0-rc.1"
+    "crateChecksum": "8cf857bb040d26af5f32e35ad386ad5259f7174ced2de4669b8ddb36eb8acbcd",
+    "version": "0.4.0-rc.2"
   }
 }
