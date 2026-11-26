@@ -1,7 +1,7 @@
 apiVersion: v2
 name: connector-s3
-version: 1.4.0-rc.1
-appVersion: 1.4.0-rc.1
+version: 1.4.0-rc.2
+appVersion: 1.4.0-rc.2
 type: application
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/connector-s3
 sources:
