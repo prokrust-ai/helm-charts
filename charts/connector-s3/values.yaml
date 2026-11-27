@@ -1,10 +1,11 @@
-controllerImage: ar.prokrust.io/prokrust/connector-s3@sha256:923d386b90e70cee31d2e63a6c59941086fc2ca5c988f915d2d8d33fb2d6f683
-runtimeImage: ar.prokrust.io/prokrust/connector-s3@sha256:923d386b90e70cee31d2e63a6c59941086fc2ca5c988f915d2d8d33fb2d6f683
-descriptorDigest: sha256:82ab6da81b93a94c57da07141f8f1c949b16aafd00d60e573d77dc9a374f1c0d
+controllerImage: ar.prokrust.io/prokrust/connector-s3@sha256:0e598a7a26e77bd893eedbc5175c6d0ae5941ea67e711595702a217dbd2a7a99
+runtimeImage: ar.prokrust.io/prokrust/connector-s3@sha256:0e598a7a26e77bd893eedbc5175c6d0ae5941ea67e711595702a217dbd2a7a99
+descriptorDigest: sha256:c241c834c28537c4b1b4e12859491cc1d6b8d0441cb6e2f9448aeea6ec34bc63
 imagePullSecrets: []
 nodeSelector: {}
 tolerations: []
 runtimeServiceAccountName: prokrust-connector-runtime
+runtimeServiceAccountManagers: {}
 runtimeTokenAudiences: []
 runtimeArtifactCredentialsSecretName: ''
 runtimeArtifactCredentialsProjectionUsername: ''
