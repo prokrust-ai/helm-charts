@@ -34,7 +34,7 @@ rules:
   - apiGroups: [platform.prokrust.ai]
     resources: [licenseactivations]
     resourceNames: [default]
-    verbs: [get]
+    verbs: [get, patch]
   - apiGroups: [platform.prokrust.ai]
     resources: [licenseactivations/status]
     resourceNames: [default]

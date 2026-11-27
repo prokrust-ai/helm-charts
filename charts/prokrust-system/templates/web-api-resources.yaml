@@ -2,8 +2,8 @@
   {{- if .Values.webApi.renderFromParent -}}
     {{- $registry := include "operator.connectorRegistry" $ | fromJson -}}
     {{- $context := merge (dict "ServingWorkloadPlacementProfile" $.Values.serving.workloadPlacementProfile) . -}}
-    {{- if $registry.sources -}}
-      {{- $_ := set $context "ConnectorRegistry" (pick $registry "sources" "checksum") -}}
+    {{- if $registry.providers -}}
+      {{- $_ := set $context "ConnectorRegistry" (pick $registry "providers") -}}
     {{- end -}}
     {{- include "web-api.resources" $context -}}
   {{- end -}}

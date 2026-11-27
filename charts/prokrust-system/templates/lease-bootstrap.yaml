@@ -208,8 +208,10 @@ spec:
                   fi
                 done
               fi
+{{- if or (ne .Values.leaseBootstrap.mode "helm") .Release.IsUpgrade }}
               # Preserve active holder and renewal fields.
               exec kubectl apply --server-side --field-manager=prokrust-lease-bootstrap -f /config/leases.yaml
+{{- end }}
           env:
             - {name: HOME, value: /tmp}
             - {name: CRD_BUNDLE_SHA256, value: {{ .Values.crdBundleSha256 | default "" | quote }}}

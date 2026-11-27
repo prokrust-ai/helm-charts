@@ -28,25 +28,30 @@
   ],
   "contractVersion": 1,
   "example": {
-    "introduction": "The build can accept the request while it waits for the referenced Table.",
-    "nextCheck": "Check the dependency’s readiness. Use the parent snapshot’s committed publication to locate the result after the build succeeds.",
+    "introduction": "A connector runtime returned overload on partition reads. The build retains the current source plan.",
+    "nextCheck": "Retry runs automatically after the indicated time when work can be dispatched. Check connector runtime capacity if backoff recurs.",
     "status": {
       "conditions": [
         {
-          "message": "Referenced Table is not ready.",
+          "message": "Connector runtime overloaded. 2 partitions waiting for retry. Next retry eligible at 2023-11-14T22:13:20Z.",
           "observedGeneration": 2,
-          "reason": "DependencyNotReady",
+          "reason": "ConnectorPartitionBackoff",
           "status": "False",
-          "type": "DependenciesReady"
+          "type": "Ready"
         }
       ],
-      "executionPhase": "Validating",
-      "phase": "Blocked"
+      "connector": {
+        "partitionBackoff": {
+          "partitionCount": 2,
+          "reason": "RUNTIME_OVERLOADED",
+          "retryAt": "2023-11-14T22:13:20Z"
+        }
+      }
     },
-    "title": "When a dependency delays a build"
+    "title": "While source partitions wait for retry"
   },
   "kind": "SnapshotBuild",
-  "narrative": "Read `spec.request.snapshotRef.kind` first. Table and graph builds report different workflow checks. A missing target, identity mismatch, or competing build can set a failure before refreshing conditions. Check `status.phase`, `status.executionPhase`, and `status.failure` together. For a failed connector plan, read `status.failure.suggestedAction` and `status.connector.lastPlanningFailure`. A reported controlConcurrency value is the per-replica planning limit. Reserved planning limits describe caps, and do not identify which counter was exceeded. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the build's `spec.request.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity.",
+  "narrative": "Read `spec.request.snapshotRef.kind` first. Table and graph builds report different workflow checks. A missing target, identity mismatch, or competing build can set a failure before refreshing conditions. Check `status.phase`, `status.executionPhase`, and `status.failure` together. For a failed connector plan, read `status.failure.suggestedAction` and `status.connector.lastPlanningFailure`. For `InvalidGraphPublication`, read `status.failure.message` for the graph field or inventory rule rejected during finalization, then check the data-job and operator contract versions. A reported controlConcurrency value is the per-replica planning limit. Reserved planning limits describe caps, and do not identify which counter was exceeded. When `status.failure.code` is `ExecutionPodUnschedulable`, the Pod is waiting for an eligible node. Compare the build's `spec.request.placementTemplateRef` and the Pod's resource requests with node labels, taints, affinity rules and available capacity.",
   "outcomes": [
     {
       "conditionType": "Accepted",
@@ -118,6 +123,18 @@
       "conditionType": "Ready",
       "guidance": "The workflow stopped after cancellation. Check cleanup before retrying.",
       "reason": "Cancelled",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "The connector reported runtime overload. Read the partition count and earliest window retry eligibility from status.connector.partitionBackoff.",
+      "reason": "ConnectorPartitionBackoff",
+      "status": "False"
+    },
+    {
+      "conditionType": "Ready",
+      "guidance": "Partition backoff cleared. Follow the current source read through to workflow handoff or a terminal result.",
+      "reason": "ConnectorSourceRead",
       "status": "False"
     },
     {

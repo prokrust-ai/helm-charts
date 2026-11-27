@@ -3,7 +3,11 @@
 {{- if and $registry (or .Values.webApi.connectorRegistryConfigMap .Values.webApi.connectorRegistryItems) -}}
 {{- fail "Configure either the system provider registry or webApi.connectorRegistryConfigMap" -}}
 {{- end -}}
-{{- if and $registry (or (empty $registry.sources) (not (regexMatch "^[a-f0-9]{64}$" (default "" $registry.checksum)))) -}}
+{{- $discovery := hasKey ($registry | default dict) "providers" -}}
+{{- if and $discovery (or (empty $registry.providers) $registry.sources $registry.checksum) -}}
+{{- fail "Connector discovery requires provider mounts without an aggregate registry" -}}
+{{- end -}}
+{{- if and $registry (not $discovery) (or (empty $registry.sources) (not (regexMatch "^[a-f0-9]{64}$" (default "" $registry.checksum)))) -}}
 {{- fail "Projected connector registry requires sources and a SHA-256 checksum" -}}
 {{- end -}}
 {{- $hasRegistry := or $registry .Values.webApi.connectorRegistryConfigMap -}}
@@ -60,13 +64,13 @@ spec:
     matchLabels: {app.kubernetes.io/name: prokrust-web-api}
   template:
     metadata:
-      {{- if or $oidc.enabled $registry }}
+      {{- if or $oidc.enabled (and $registry (not $discovery)) }}
       annotations:
         {{- if $oidc.enabled }}
         prokrust.ai/auth-revision: {{ int64 $oidc.revision | quote }}
         {{- end }}
-        {{- with $registry }}
-        prokrust.ai/connector-registry-checksum: {{ .checksum | quote }}
+        {{- if and $registry (not $discovery) }}
+        prokrust.ai/connector-registry-checksum: {{ $registry.checksum | quote }}
         {{- end }}
       {{- end }}
       labels:
@@ -122,7 +126,7 @@ spec:
             {{- end }}
             {{- if $hasRegistry }}
             - name: PROKRUST_CONNECTOR_CONFIG
-              value: /var/run/prokrust-connectors/registry.json
+              value: {{ ternary "/var/run/prokrust-connectors" "/var/run/prokrust-connectors/registry.json" $discovery }}
             {{- end }}
             - name: PROKRUST_SYSTEM_NAMESPACE
               value: {{ .Release.Namespace | quote }}
@@ -144,7 +148,11 @@ spec:
             {{- end }}
           {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
           volumeMounts:
-            {{- if $hasRegistry }}
+            {{- if $discovery }}
+            {{- range $i, $slug := $registry.providers }}
+            - {name: connector-{{ $i }}, mountPath: /var/run/prokrust-connectors/{{ $slug }}, readOnly: true}
+            {{- end }}
+            {{- else if $hasRegistry }}
             - {name: connector-registry, mountPath: /var/run/prokrust-connectors, readOnly: true}
             {{- end }}
             {{- if $oidc.enabled }}
@@ -168,7 +176,12 @@ spec:
             capabilities: {drop: ["ALL"]}
       {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
       volumes:
-        {{- if $hasRegistry }}
+        {{- if $discovery }}
+        {{- range $i, $slug := $registry.providers }}
+        - name: connector-{{ $i }}
+          configMap: {name: prokrust-connector-{{ $slug }}-registry, optional: true}
+        {{- end }}
+        {{- else if $hasRegistry }}
         - name: connector-registry
           {{- if $registry }}
           projected:

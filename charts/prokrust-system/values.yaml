@@ -1,16 +1,13 @@
 connectors:
-  bigquery:
+  discovery:
     enabled: false
-  gcs:
-    enabled: false
-  iceberg:
-    enabled: false
-  paimon:
-    enabled: false
-  s3:
-    enabled: false
-  synthetic:
-    enabled: false
+    providers:
+    - bigquery
+    - gcs
+    - iceberg
+    - paimon
+    - s3
+    - synthetic
 global:
   awsRegion: ''
   networkFamily: IPv4
@@ -65,7 +62,7 @@ global:
 images:
   operator:
     repository: ar.prokrust.io/prokrust/operator
-    digest: sha256:34742e704eed5124b0f4e47a3645512a8568c302f7a2e4387c6cbbabf4730be8
+    digest: sha256:d1b3d0a21b02d151af9d5e9650e6fc302efb6b7c76f1c155f58849fad881370c
     pullPolicy: IfNotPresent
 controllers:
   applicationReplicas: 1
@@ -119,11 +116,12 @@ components:
   serving:
     version: 0.12.0-rc.1
   web-api:
-    version: 0.31.0-rc.3
+    version: 0.32.0-rc.1
   ballista:
     version: 0.4.1-rc.1
     chartVersion: 0.4.1-rc.1
 licensing:
+  uninstall: {}
   serverURL: https://license.prokrust.ai
   credentialSecret: prokrust-license-credential
   identitySecret: prokrust-installation-identity
@@ -166,7 +164,7 @@ web-api:
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:3e4574b707914f4ea64a04de31e78850cf3c5b719e54acf974f820c0585a1e9c
+      digest: sha256:dde858e66aa745ee468c41682c7bdd7be239686d9fe87b46b25453926902bdbe
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []

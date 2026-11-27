@@ -22,10 +22,6 @@ spec:
       app.kubernetes.io/name: prokrust-application-controller
   template:
     metadata:
-      {{- with $registry.checksum }}
-      annotations:
-        prokrust.ai/connector-registry-checksum: {{ . | quote }}
-      {{- end }}
       labels:
         app.kubernetes.io/name: prokrust-application-controller
         app.kubernetes.io/component: controller
@@ -65,7 +61,11 @@ spec:
             {{- end }}
             {{- if $registry.enabled }}
             - name: PROKRUST_CONNECTOR_CONFIG
-              value: /etc/prokrust/connectors/registry.json
+              value: {{ ternary "/etc/prokrust/connectors" "/etc/prokrust/connectors/registry.json" (not (empty $registry.providers)) }}
+            {{- if $registry.providers }}
+            - name: PROKRUST_SYSTEM_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            {{- end }}
             {{- with .Values.connectors.trustBundleConfigMap }}
             - name: PROKRUST_CONNECTOR_TRUST_BUNDLE
               value: {{ . | quote }}
@@ -143,7 +143,10 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: {drop: ["ALL"]}
           volumeMounts:
-            {{- if $registry.enabled }}
+            {{- range $i, $slug := $registry.providers }}
+            - {name: connector-registry-{{ $i }}, mountPath: /etc/prokrust/connectors/{{ $slug }}, readOnly: true}
+            {{- end }}
+            {{- if and $registry.enabled (empty $registry.providers) }}
             - {name: connector-registry, mountPath: /etc/prokrust/connectors, readOnly: true}
             {{- end }}
             - {name: tmp, mountPath: /tmp}
@@ -156,18 +159,17 @@ spec:
             - {name: gcp-federation, mountPath: /var/run/prokrust/gcp, readOnly: true}
             {{- end }}
       volumes:
-        {{- if $registry.enabled }}
+        {{- range $i, $slug := $registry.providers }}
+        - name: connector-registry-{{ $i }}
+          configMap: {name: prokrust-connector-{{ $slug }}-registry, optional: true}
+        {{- end }}
+        {{- if and $registry.enabled (empty $registry.providers) }}
         - name: connector-registry
-          {{- if $registry.sources }}
-          projected:
-            sources: {{ $registry.sources | toJson }}
-          {{- else }}
           configMap:
             name: {{ .Values.connectors.registryConfigMap | default "prokrust-connector-registry" | quote }}
             {{- with .Values.connectors.registryItems }}
             items: {{ . | toJson }}
             {{- end }}
-          {{- end }}
         {{- end }}
         - name: startup-tls
           secret:

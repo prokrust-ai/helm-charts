@@ -1,0 +1,145 @@
+{{- $name := "prokrust-license-uninstall" -}}
+{{- $argo := dig "uninstall" "argoApplication" (dict) .Values.licensing -}}
+{{- if or (ne .Values.leaseBootstrap.mode "argo") $argo -}}
+{{- $argoRole := printf "%s-%s" $name (.Release.Namespace | sha256sum | trunc 12) -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+{{- with .Values.global.imagePullSecrets }}
+imagePullSecrets: {{ toJson . }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [platform.prokrust.ai]
+    resources: [licenseactivations]
+    resourceNames: [default]
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ .Values.licensing.identitySecret | quote }}]
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ .Values.licensing.entitlementSecret | quote }}, prokrust-license-challenge]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - {kind: ServiceAccount, name: {{ $name }}, namespace: {{ .Release.Namespace }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $name }}}
+{{- with $argo }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $argoRole }}
+  namespace: {{ .namespace | quote }}
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [applications]
+    resourceNames: [{{ .name | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $argoRole }}
+  namespace: {{ .namespace | quote }}
+subjects:
+  - {kind: ServiceAccount, name: {{ $name }}, namespace: {{ $.Release.Namespace }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $argoRole }}}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: {{ $name }}}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {{ .Values.global.networkPolicy.dns.namespaceSelector | toJson }}
+          podSelector:
+            matchLabels: {{ .Values.global.networkPolicy.dns.podSelector | toJson }}
+        {{- range (include "operator.dnsServerCIDRs" . | fromJsonArray) }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    {{- range .Values.global.networkPolicy.apiServerEndpoints }}
+    - to: [{ipBlock: {cidr: {{ .cidr | quote }}}}]
+      ports: [{protocol: TCP, port: {{ .port }}}]
+    {{- end }}
+    - {{- with .Values.licensing.serverEgressCIDRs }}
+      to:
+        {{- range . }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  activeDeadlineSeconds: 180
+  # Argo CD may orphan the Job before processing its hook-delete policy.
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+    spec:
+      {{- include "operator.podPlacement" . | nindent 6 }}
+      restartPolicy: Never
+      serviceAccountName: {{ $name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: deactivate
+          image: {{ include "operator.image" .Values.images.operator }}
+          imagePullPolicy: {{ .Values.images.operator.pullPolicy }}
+          args: [license-deactivate-on-uninstall]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          env:
+            - name: RP_POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: PROKRUST_UNINSTALL_IDENTITY_SECRET
+              value: {{ .Values.licensing.identitySecret | quote }}
+            - name: PROKRUST_UNINSTALL_ENTITLEMENT_SECRET
+              value: {{ .Values.licensing.entitlementSecret | quote }}
+            {{- with $argo }}
+            - name: PROKRUST_UNINSTALL_ARGO_NAMESPACE
+              value: {{ .namespace | quote }}
+            - name: PROKRUST_UNINSTALL_ARGO_APPLICATION
+              value: {{ .name | quote }}
+            {{- end }}
+{{- end }}

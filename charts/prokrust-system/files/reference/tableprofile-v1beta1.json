@@ -16,6 +16,6 @@
     "title": "When the profile exceeds its deadline"
   },
   "kind": "TableProfile",
-  "narrative": "TableProfile reports `status.state`. While planning, inspect the request’s source, mode, and budget. During aggregation, follow the profile workflow. A successful request publishes `status.result`. For a failed or cancelled profile, inspect `status.failure`, `status.accounting`, and `status.cleanupComplete`. Cleanup can finish after the request reaches its terminal state.",
+  "narrative": "TableProfile reports `status.state`. While planning, inspect the request’s source, mode, and budget. During aggregation, follow the profile workflow. A successful request publishes `status.result`. For a failed or cancelled profile, inspect `status.failure`, `status.accounting`, and `status.cleanupComplete`. During a nonterminal partition retry, `status.execution.partitionBackoff` reports RUNTIME_OVERLOADED, the affected partition count and retryAt when known. It clears once no partitions are waiting. Cleanup can finish after the request reaches its terminal state.",
   "outcomes": []
 }

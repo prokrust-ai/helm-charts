@@ -1,0 +1,53 @@
+{{- $providers := (include "operator.connectorRegistry" . | fromJson).providers -}}
+{{- if $providers }}
+{{- $policy := printf "%s-connector-registry-writers" .Release.Namespace }}
+{{- $maps := list }}
+{{- range $providers }}
+  {{- $maps = append $maps (printf "prokrust-connector-%s-registry" .) }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prokrust-connector-registry-writer
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: {{ $maps | toJson }}
+    verbs: [register]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $policy }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+        scope: Namespaced
+  variables:
+    - name: registryName
+      expression: "object != null ? object.metadata.name : oldObject.metadata.name"
+  validations:
+    - expression: >-
+        !(variables.registryName in {{ $maps | toJson }}) ||
+        authorizer.group('').resource('configmaps').namespace(request.namespace).name(variables.registryName).check('register').allowed() ||
+        (request.operation == 'DELETE' && has(namespaceObject.metadata.deletionTimestamp) &&
+          request.userInfo.username in ['system:kube-controller-manager', 'system:serviceaccount:kube-system:namespace-controller'])
+      message: Connector registry updates require the register permission on this ConfigMap
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $policy }}
+spec:
+  policyName: {{ $policy }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace | quote }}}
+{{- end }}

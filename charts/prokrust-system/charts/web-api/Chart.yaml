@@ -2,8 +2,8 @@ apiVersion: v2
 name: web-api
 description: Prokrust web-api independently released component
 type: application
-version: 0.31.0-rc.3
-appVersion: 0.31.0-rc.3
+version: 0.32.0-rc.1
+appVersion: 0.32.0-rc.1
 kubeVersion: '>=1.30.0-0'
 home: https://github.com/prokrust-ai/helm-charts/tree/main/charts/prokrust-system
 sources:
