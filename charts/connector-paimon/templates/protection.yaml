@@ -37,9 +37,25 @@ spec:
         operations: [CREATE, UPDATE, DELETE]
         resources: [certificates]
         scope: Namespaced
+  {{- with .Values.runtimeServiceAccountManagers }}
+  variables:
+    - name: runtimeServiceAccountManagers
+      expression: {{ . | mustToJson | quote }}
+  {{- end }}
   validations:
     - expression: >-
         {{ $trusted }} || (has(request.userInfo.username) && request.userInfo.username in {{ $system }}) ||
+        {{- if .Values.runtimeServiceAccountManagers }}
+        (
+          request.operation in ['CREATE', 'UPDATE', 'DELETE'] &&
+          request.resource.group == '' && request.resource.resource == 'serviceaccounts' &&
+          (!has(request.subResource) || request.subResource == '') &&
+          has(request.name) && request.name == {{ .Values.runtimeServiceAccountName | toJson }} &&
+          has(request.namespace) && request.namespace in variables.runtimeServiceAccountManagers &&
+          has(request.userInfo.username) &&
+          request.userInfo.username in variables.runtimeServiceAccountManagers[request.namespace]
+        ) ||
+        {{- end }}
         (
           request.operation == 'CREATE' &&
           request.resource.resource == 'serviceaccounts' &&
