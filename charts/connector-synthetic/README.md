@@ -8,6 +8,22 @@ Set `imagePullSecrets`, `nodeSelector`, and `tolerations` for the controller
 Pod. Set `runtimeNodeSelector` and `runtimeTolerations` for runtime Pods.
 Runtime Pods use the image pull secrets of their workspace ServiceAccount.
 
+## Manage the runtime ServiceAccount
+
+When a separate installer manages the runtime ServiceAccount in a workspace,
+set its exact Kubernetes username under that workspace name. For example:
+
+```yaml
+runtimeServiceAccountManagers:
+  analytics:
+    - system:serviceaccount:platform:workspace-installer
+```
+
+The installer also needs Kubernetes RBAC to create, update or delete the
+configured `runtimeServiceAccountName`. This setting grants an admission
+exception for those account operations in that workspace. Token requests and
+other connector resources retain their own admission checks.
+
 ## Runtime token admission
 
 Runtime root protection denies ordinary callers access to the reserved service
