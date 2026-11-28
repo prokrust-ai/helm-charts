@@ -146,8 +146,8 @@ spec:
             - name: RP_ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS_FILE
               value: /var/run/prokrust/gcp/config.json
             {{- end }}
-          {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
           volumeMounts:
+            - {name: ui-capabilities, mountPath: /usr/local/share/prokrust/ui/config, readOnly: true}
             {{- if $discovery }}
             {{- range $i, $slug := $registry.providers }}
             - {name: connector-{{ $i }}, mountPath: /var/run/prokrust-connectors/{{ $slug }}, readOnly: true}
@@ -162,7 +162,6 @@ spec:
             {{- if .Values.webApi.artifactFederation }}
             - {name: artifact-gcp-auth, mountPath: /var/run/prokrust/gcp, readOnly: true}
             {{- end }}
-          {{- end }}
           ports:
             - {name: http, containerPort: 8080}
           readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5}
@@ -174,8 +173,13 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: ["ALL"]}
-      {{- if or $oidc.enabled .Values.webApi.artifactFederation $hasRegistry }}
       volumes:
+        - name: ui-capabilities
+          configMap:
+            name: prokrust-ui-capabilities
+            optional: true
+            items:
+              - {key: performance.json, path: performance.json}
         {{- if $discovery }}
         {{- range $i, $slug := $registry.providers }}
         - name: connector-{{ $i }}
@@ -233,7 +237,6 @@ spec:
                   audience: {{ .Values.webApi.artifactFederation.audience | quote }}
                   expirationSeconds: 3600
         {{- end }}
-      {{- end }}
 ---
 apiVersion: v1
 kind: Service

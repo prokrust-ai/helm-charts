@@ -39,7 +39,7 @@ global:
 images:
   webApi:
     repository: ar.prokrust.io/prokrust/web-api
-    digest: sha256:dde858e66aa745ee468c41682c7bdd7be239686d9fe87b46b25453926902bdbe
+    digest: sha256:a0323c77e5d87d0d3483906e11bb680bc4c05289128c49e77896b2f58ceb2d8b
     pullPolicy: IfNotPresent
 webApi:
   renderFromParent: false

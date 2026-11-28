@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prokrust-ui-capabilities
+  namespace: {{ .Release.Namespace }}
+data:
+  performance.json: {{ dict "cpu" .Values.profiling.enabled "cuda" (and .Values.profiling.enabled (not (empty .Values.profiling.nsightToolsPVC))) | toJson | quote }}

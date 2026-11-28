@@ -62,7 +62,7 @@ global:
 images:
   operator:
     repository: ar.prokrust.io/prokrust/operator
-    digest: sha256:d1b3d0a21b02d151af9d5e9650e6fc302efb6b7c76f1c155f58849fad881370c
+    digest: sha256:58795e2abfd0e55fda56f99f606094cd6d6b248fca3a8ede9d0ad39976c986a8
     pullPolicy: IfNotPresent
 controllers:
   applicationReplicas: 1
@@ -116,7 +116,7 @@ components:
   serving:
     version: 0.12.0-rc.1
   web-api:
-    version: 0.32.0-rc.1
+    version: 0.32.0-rc.2
   ballista:
     version: 0.4.1-rc.1
     chartVersion: 0.4.1-rc.1
@@ -164,7 +164,7 @@ web-api:
   images:
     webApi:
       repository: ar.prokrust.io/prokrust/web-api
-      digest: sha256:dde858e66aa745ee468c41682c7bdd7be239686d9fe87b46b25453926902bdbe
+      digest: sha256:a0323c77e5d87d0d3483906e11bb680bc4c05289128c49e77896b2f58ceb2d8b
       pullPolicy: IfNotPresent
 awsAuth:
   stsNetworkCIDRs: []

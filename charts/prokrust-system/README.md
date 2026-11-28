@@ -39,6 +39,9 @@ updates when Kubernetes refreshes their mounted volumes. To upgrade, repeat
 the provider command with a compatible new chart version. Drain accepted work
 before removing a provider release.
 
+With Kustomize, pin each provider’s chart version and values in its own
+`helmCharts` entry.
+
 Restrict write access to the installation namespace. Discovery adds an
 admission check for creates, updates and deletes of trusted registry ConfigMaps.
 The Helm installer needs regular write permissions for the provider resources
@@ -51,139 +54,6 @@ Verify any pre-existing trusted ConfigMaps before enabling discovery.
 For an existing aggregate registry, keep `connectors.enabled`,
 `connectors.registryConfigMap`, `connectors.registryItems` and the corresponding
 Web API values. To switch to discovery, remove those aggregate registry settings.
-
-## Move bundled providers to standalone Helm releases
-
-Use Helm 3.17 or newer from the Helm 3 series and Python 3 with PyYAML for
-this one-time ownership handoff. Coordinate it with anyone managing these
-resources. Drain active connector work and keep the old System chart, its
-values and the exact component chart versions for recovery. The provider data
-and controller names must survive the transfer.
-
-1. Save the installed System manifest and effective values. For each enabled
-   provider, copy its values under `connectors.<provider>` into a separate
-   values file, removing the old `enabled` switch and preserving inherited
-   settings. Render the standalone chart at **the same chart version** as the
-   bundled dependency, in the same namespace with release name
-   `connector-<provider>`. Compare the resource kinds, namespaces, names,
-   immutable fields, selectors and RBAC bindings to the installed manifest.
-   Long namespace names can produce different truncated names. Resolve every
-   mismatch before transferring ownership.
-2. Extract `files/migration/retain-bundled-connectors.py` from the new System
-   chart and make it executable. Upgrade the **currently installed, bundled**
-   System chart at its original version with the same release name and values:
-
-   ```sh
-   helm upgrade "$SYSTEM_RELEASE" oci://ar.prokrust.io/charts/prokrust-system \
-     --namespace "$SYSTEM_NAMESPACE" --version "$BUNDLED_VERSION" --reuse-values \
-     --post-renderer ./retain-bundled-connectors.py
-   ```
-
-   Check `helm get manifest` and live metadata. Every enabled provider resource
-   must now carry `helm.sh/resource-policy: keep`. Verify that all other
-   resources retain their original policies. This bridge revision lets Helm
-   retain those objects when the dependency disappears on the next upgrade.
-3. Prepare the new System values from the installation configuration. Remove
-   all old `connectors.<provider>` blocks and enable discovery. Upgrade to
-   the split System chart using `--reset-values --values system-values.yaml`
-   to avoid carrying obsolete provider keys forward. Verify the System
-   manifest no longer owns provider objects and that they are still present.
-4. Run the standalone Helm install command above for each provider, adding
-   `--take-ownership` and using the verified version and values from step 1.
-   Verify every expected object belongs to the new release, that each provider
-   controller is Ready and that Operator and Web API see its descriptor.
-   Compare provider object UIDs with the saved live UIDs. Helm 3 can leave the
-   bridge's keep annotation on the live object after adoption. Clear it before
-   relying on uninstall.
-
-Save this cleanup helper as `clear-bridge-keep.py`. It acts on the supplied
-manifest inventory and tests the expected Helm owner and resource version
-before removing the live annotation. For a forward transfer, run it once per
-provider, for example:
-
-```sh
-helm get manifest connector-bigquery -n "$SYSTEM_NAMESPACE" > bigquery-inventory.yaml
-python3 clear-bridge-keep.py connector-bigquery "$SYSTEM_NAMESPACE" bigquery-inventory.yaml
-```
-
-```python
-import json
-from pathlib import Path
-import subprocess
-import sys
-
-import yaml
-
-release, namespace, inventory = sys.argv[1:]
-for obj in yaml.safe_load_all(Path(inventory).read_text()):
-    if not obj:
-        continue
-    meta = obj["metadata"]
-    group, _, _ = obj["apiVersion"].rpartition("/")
-    resource = obj["kind"] + ("." + group if group else "") + "/" + meta["name"]
-    # Workspace RoleBindings can be in a different namespace. kubectl also
-    # resolves cluster-scoped resources when given a namespace default.
-    command = ["kubectl", "--namespace", meta.get("namespace", namespace)]
-    live = json.loads(subprocess.check_output(command + ["get", resource, "-o", "json"]))["metadata"]
-    annotations = live.get("annotations", {})
-    if (annotations.get("meta.helm.sh/release-name"), annotations.get("meta.helm.sh/release-namespace")) != (release, namespace):
-        sys.exit(f"Unexpected owner of {resource} in {meta.get('namespace', namespace)}")
-    if annotations.get("helm.sh/resource-policy") == "keep":
-        subprocess.run(command + ["annotate", resource, "--resource-version=" + live["resourceVersion"],
-                                  "helm.sh/resource-policy-"], check=True)
-```
-
-### Reverse the ownership transfer
-
-Roll back ordinary connector upgrades with the provider release's `helm rollback`.
-To return to a bundled System version:
-
-1. Drain connector work, save all six or fewer standalone manifests as
-   inventories, and verify the old System render has identical names, scopes,
-   selectors and controller images. Restore the original provider values and
-   versions in the old System values file.
-2. Create the post-renderer below and run one bridge upgrade per standalone
-   release, using its **current** chart version and release name. Each release's
-   bridge manifest must retain every object in its saved inventory.
-
-   ```sh
-   cat > retain-provider <<'PYTHON'
-   #!/usr/bin/env python3
-   import sys
-   import yaml
-   objects = [o for o in yaml.safe_load_all(sys.stdin) if o]
-   if not objects:
-       sys.exit("No provider objects found")
-   for obj in objects:
-       obj["metadata"].setdefault("annotations", {})["helm.sh/resource-policy"] = "keep"
-   yaml.safe_dump_all(objects, sys.stdout, sort_keys=False, explicit_start=True)
-   PYTHON
-   chmod +x retain-provider
-   helm upgrade "$CONNECTOR_RELEASE" "oci://ar.prokrust.io/charts/$CONNECTOR_RELEASE" \
-     -n "$SYSTEM_NAMESPACE" --version "$CONNECTOR_VERSION" --reuse-values --post-renderer ./retain-provider
-   ```
-
-3. Verify both the bridge revision (`helm get manifest`) and the live objects
-   carry the keep policy. Uninstall each standalone release with
-   `helm uninstall "$CONNECTOR_RELEASE" -n "$SYSTEM_NAMESPACE" --keep-history`.
-   Confirm that the inventoried objects still exist with their original UIDs.
-4. Reinstall the old dependency layout into the existing System release:
-
-   ```sh
-   helm upgrade "$SYSTEM_RELEASE" oci://ar.prokrust.io/charts/prokrust-system \
-     -n "$SYSTEM_NAMESPACE" --version "$BUNDLED_VERSION" --reset-values \
-     --values bundled-values.yaml --take-ownership
-   ```
-
-5. Verify System now owns the same provider object UIDs. Clean the temporary
-   live policies for each saved provider inventory, this time passing
-   `"$SYSTEM_RELEASE"` as the expected owner. Check provider readiness, registry
-   contents and a representative connection.
-
-Kustomize users can pin each provider's chart version and values in its own
-`helmCharts` entry. Preserve release names, namespaces, resource identities and
-the existing GitOps application ownership when changing the render inputs.
-Kustomize renders manifests and has no Helm release history to transfer.
 
 ## License activation during uninstall
 
